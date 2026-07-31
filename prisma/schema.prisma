@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Single-row table: this app has exactly one owner, so there is no
+// separate User/Organization model. `id` is always 1.
+model OwnerAccount {
+  id                 Int       @id @default(1)
+  email              String
+  displayName        String
+  timezone           String // IANA tz, e.g. "America/Sao_Paulo"
+  googleCalendarId   String    @default("primary")
+  googleAccessToken  String?   @db.Text
+  googleRefreshToken String?   @db.Text
+  googleTokenExpiry  DateTime?
+  minNoticeMinutes   Int       @default(120) // can't book less than 2h from now
+  bookingHorizonDays Int       @default(60) // can't book more than 60 days out
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model EventType {
+  id                String             @id @default(cuid())
+  slug              String             @unique // e.g. "30min-call"
+  title             String
+  description       String?
+  durationMinutes   Int
+  bufferBeforeMin   Int                @default(0)
+  bufferAfterMin    Int                @default(0)
+  isActive          Boolean            @default(true)
+  availabilityRules AvailabilityRule[]
+  bookings          Booking[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model AvailabilityRule {
+  id          String    @id @default(cuid())
+  eventTypeId String
+  eventType   EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int // 0=Sun ... 6=Sat, owner-local
+  startTime   String // "09:00" owner-local
+  endTime     String // "18:00" owner-local
+  isActive    Boolean   @default(true)
+
+  @@index([eventTypeId])
+}
+
+model Booking {
+  id          String    @id @default(cuid())
+  eventTypeId String
+  eventType   EventType @relation(fields: [eventTypeId], references: [id])
+
+  inviteeName     String
+  inviteeEmail    String
+  inviteeTimezone String
+  inviteeNotes    String?
+
+  startTimeUTC DateTime
+  endTimeUTC   DateTime
+
+  status BookingStatus @default(CONFIRMED)
+
+  // eventTypeId+startTimeUTC while CONFIRMED, set to null on cancel.
+  // The unique index on this column is what atomically prevents double-booking.
+  activeSlotKey String? @unique
+
+  googleEventId      String?
+  meetLink           String?
+  calendarSyncStatus String  @default("synced") // synced | pending_retry | failed
+
+  cancelToken     String    @unique @default(cuid())
+  qstashMessageId String?
+  reminderSentAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventTypeId])
+  @@index([startTimeUTC])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
