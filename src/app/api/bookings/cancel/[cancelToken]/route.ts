@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DateTime } from "luxon";
 import { prisma } from "@/lib/db";
 import { deleteCalendarEvent } from "@/lib/google-calendar";
+import { sendCancellationEmail } from "@/lib/email";
+import { cancelReminder } from "@/lib/qstash";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ cancelToken: string }> }) {
   const { cancelToken } = await params;
@@ -25,7 +28,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ cancelToken: string }> }) {
   const { cancelToken } = await params;
 
-  const booking = await prisma.booking.findUnique({ where: { cancelToken } });
+  const booking = await prisma.booking.findUnique({
+    where: { cancelToken },
+    include: { eventType: { select: { title: true } } },
+  });
   if (!booking) {
     return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
   }
@@ -48,6 +54,29 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       // event left on the calendar is a cosmetic issue, not a booking bug.
       console.error("Falha ao remover evento do Google Calendar para a reserva", booking.id, err);
     }
+  }
+
+  if (booking.qstashMessageId) {
+    await cancelReminder(booking.qstashMessageId);
+  }
+
+  try {
+    const formattedDateTime = DateTime.fromJSDate(booking.startTimeUTC, { zone: booking.inviteeTimezone }).toLocaleString({
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    await sendCancellationEmail({
+      eventTitle: booking.eventType.title,
+      formattedDateTime,
+      inviteeName: booking.inviteeName,
+      inviteeEmail: booking.inviteeEmail,
+    });
+  } catch (err) {
+    console.error("Falha ao enviar e-mail de cancelamento para a reserva", booking.id, err);
   }
 
   return NextResponse.json({ ok: true });

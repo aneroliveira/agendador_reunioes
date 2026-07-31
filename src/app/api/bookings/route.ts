@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { DateTime } from "luxon";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { computeSlotsForEventType } from "@/lib/scheduling";
 import { createCalendarEvent } from "@/lib/google-calendar";
+import { sendConfirmationEmail } from "@/lib/email";
+import { scheduleReminder } from "@/lib/qstash";
 
 const bodySchema = z.object({
   eventTypeSlug: z.string().min(1),
@@ -105,6 +108,41 @@ export async function POST(request: NextRequest) {
         where: { id: booking.id },
         data: { calendarSyncStatus: "failed" },
       });
+    }
+
+    const freshBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    const formattedDateTime = DateTime.fromJSDate(requestedStart, { zone: inviteeTimezone }).toLocaleString({
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${booking.cancelToken}`;
+
+    // Notifications are best-effort: the booking itself must not fail just
+    // because Resend or QStash had a hiccup.
+    try {
+      await sendConfirmationEmail({
+        eventTitle: eventType.title,
+        formattedDateTime,
+        inviteeName,
+        inviteeEmail,
+        meetLink: freshBooking.meetLink,
+        cancelUrl,
+      });
+    } catch (err) {
+      console.error("Falha ao enviar e-mail de confirmação para a reserva", booking.id, err);
+    }
+
+    try {
+      const messageId = await scheduleReminder({ bookingId: booking.id, startTimeUTC: requestedStart });
+      if (messageId) {
+        await prisma.booking.update({ where: { id: booking.id }, data: { qstashMessageId: messageId } });
+      }
+    } catch (err) {
+      console.error("Falha ao agendar lembrete no QStash para a reserva", booking.id, err);
     }
 
     return NextResponse.json(
