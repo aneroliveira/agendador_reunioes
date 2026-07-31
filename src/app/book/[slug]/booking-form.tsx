@@ -32,6 +32,7 @@ export function BookingForm({
   const [inviteeName, setInviteeName] = useState("");
   const [inviteeEmail, setInviteeEmail] = useState("");
   const [inviteeNotes, setInviteeNotes] = useState("");
+  const [company, setCompany] = useState(""); // honeypot — must stay empty
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -115,6 +116,7 @@ export function BookingForm({
           inviteeEmail,
           inviteeTimezone: visitorTimezone,
           inviteeNotes: inviteeNotes || undefined,
+          company,
         }),
       });
       const data = await res.json();
@@ -172,6 +174,19 @@ export function BookingForm({
             </span>
           </p>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Honeypot: hidden from real visitors, tempting for bots that fill every field. */}
+            <div className="absolute left-[-9999px]" aria-hidden="true">
+              <label htmlFor="company">Empresa</label>
+              <input
+                id="company"
+                name="company"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
             <div>
               <Label htmlFor="name">Nome</Label>
               <Input id="name" required value={inviteeName} onChange={(e) => setInviteeName(e.target.value)} />

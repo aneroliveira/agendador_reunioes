@@ -15,6 +15,10 @@ const bodySchema = z.object({
   inviteeEmail: z.email(),
   inviteeTimezone: z.string().min(1),
   inviteeNotes: z.string().trim().max(2000).optional(),
+  // Honeypot: a hidden field real visitors never see or fill. Bots that
+  // blindly fill every input tend to fill it, so a non-empty value here is
+  // treated as spam. Optional so requests that omit it entirely still pass.
+  company: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -22,6 +26,10 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados inválidos", issues: parsed.error.issues }, { status: 400 });
+  }
+  if (parsed.data.company) {
+    // Pretend success so bots don't learn to leave the honeypot alone.
+    return NextResponse.json({ id: "ok", cancelToken: "", startTimeUTC: "", endTimeUTC: "" }, { status: 201 });
   }
   const { eventTypeSlug, startTimeUTC, inviteeName, inviteeEmail, inviteeTimezone, inviteeNotes } = parsed.data;
 
