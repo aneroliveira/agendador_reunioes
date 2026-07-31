@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { deleteCalendarEvent } from "@/lib/google-calendar";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ cancelToken: string }> }) {
   const { cancelToken } = await params;
@@ -38,6 +39,16 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     // Freeing activeSlotKey is what lets the slot be booked again.
     data: { status: "CANCELLED", activeSlotKey: null },
   });
+
+  if (booking.googleEventId) {
+    try {
+      await deleteCalendarEvent(booking.googleEventId);
+    } catch (err) {
+      // The booking is already cancelled in our DB either way; a stray
+      // event left on the calendar is a cosmetic issue, not a booking bug.
+      console.error("Falha ao remover evento do Google Calendar para a reserva", booking.id, err);
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

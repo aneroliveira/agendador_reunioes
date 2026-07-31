@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { computeAvailableSlots } from "@/lib/availability";
+import { computeSlotsForEventType } from "@/lib/scheduling";
 
 const querySchema = z.object({
   eventType: z.string().min(1),
@@ -31,32 +31,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Tipo de reunião não encontrado" }, { status: 404 });
   }
 
-  const rangeFromUTC = new Date(from);
-  const rangeToUTC = new Date(to);
-
-  // Local confirmed bookings for this event type count as busy, same as
-  // Google Calendar busy blocks will once Phase 2 wires that in.
-  const existingBookings = await prisma.booking.findMany({
-    where: {
-      eventTypeId: eventType.id,
-      status: "CONFIRMED",
-      startTimeUTC: { lt: rangeToUTC },
-      endTimeUTC: { gt: rangeFromUTC },
-    },
-    select: { startTimeUTC: true, endTimeUTC: true },
-  });
-
-  const slots = computeAvailableSlots({
-    rules: eventType.availabilityRules,
-    ownerTimezone: owner.timezone,
-    durationMinutes: eventType.durationMinutes,
-    bufferBeforeMin: eventType.bufferBeforeMin,
-    bufferAfterMin: eventType.bufferAfterMin,
-    minNoticeMinutes: owner.minNoticeMinutes,
-    bookingHorizonDays: owner.bookingHorizonDays,
-    busy: existingBookings.map((b) => ({ start: b.startTimeUTC, end: b.endTimeUTC })),
-    rangeFromUTC,
-    rangeToUTC,
+  const slots = await computeSlotsForEventType({
+    eventType,
+    owner,
+    rangeFromUTC: new Date(from),
+    rangeToUTC: new Date(to),
     now: new Date(),
   });
 

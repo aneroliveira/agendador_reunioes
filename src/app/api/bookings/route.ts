@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import { computeAvailableSlots } from "@/lib/availability";
+import { computeSlotsForEventType } from "@/lib/scheduling";
+import { createCalendarEvent } from "@/lib/google-calendar";
 
 const bodySchema = z.object({
   eventTypeSlug: z.string().min(1),
@@ -42,26 +43,11 @@ export async function POST(request: NextRequest) {
   // Re-validate against live data instead of trusting the client: recompute
   // slots for a window around the requested day and require an exact match.
   // This is what stops a booking from landing outside working hours or on
-  // top of a slot someone else just took (on top of the DB unique index below).
-  const existingBookings = await prisma.booking.findMany({
-    where: {
-      eventTypeId: eventType.id,
-      status: "CONFIRMED",
-      startTimeUTC: { lt: new Date(requestedStart.getTime() + 24 * 60 * 60_000) },
-      endTimeUTC: { gt: new Date(requestedStart.getTime() - 24 * 60 * 60_000) },
-    },
-    select: { startTimeUTC: true, endTimeUTC: true },
-  });
-
-  const validSlots = computeAvailableSlots({
-    rules: eventType.availabilityRules,
-    ownerTimezone: owner.timezone,
-    durationMinutes: eventType.durationMinutes,
-    bufferBeforeMin: eventType.bufferBeforeMin,
-    bufferAfterMin: eventType.bufferAfterMin,
-    minNoticeMinutes: owner.minNoticeMinutes,
-    bookingHorizonDays: owner.bookingHorizonDays,
-    busy: existingBookings.map((b) => ({ start: b.startTimeUTC, end: b.endTimeUTC })),
+  // top of a slot someone else (or a real Google Calendar event) already has
+  // (on top of the DB unique index below).
+  const validSlots = await computeSlotsForEventType({
+    eventType,
+    owner,
     rangeFromUTC: new Date(requestedStart.getTime() - 24 * 60 * 60_000),
     rangeToUTC: new Date(requestedStart.getTime() + 24 * 60 * 60_000),
     now: new Date(),
@@ -90,6 +76,36 @@ export async function POST(request: NextRequest) {
         activeSlotKey,
       },
     });
+
+    // The DB row above is what actually "holds" the slot; a Google Calendar
+    // failure here must not undo the booking, just leave it unsynced for
+    // now (calendarSyncStatus stays at its "pending_retry" value below).
+    try {
+      const calendarEvent = await createCalendarEvent({
+        summary: `${eventType.title} com ${inviteeName}`,
+        description: inviteeNotes,
+        startTimeUTC: requestedStart,
+        endTimeUTC: requestedEnd,
+        attendeeEmail: inviteeEmail,
+        attendeeName: inviteeName,
+      });
+      if (calendarEvent) {
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            googleEventId: calendarEvent.googleEventId,
+            meetLink: calendarEvent.meetLink,
+            calendarSyncStatus: "synced",
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Falha ao criar evento no Google Calendar para a reserva", booking.id, err);
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { calendarSyncStatus: "failed" },
+      });
+    }
 
     return NextResponse.json(
       {
