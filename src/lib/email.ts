@@ -14,8 +14,19 @@ export interface BookingEmailInfo {
   cancelUrl: string;
 }
 
+// The Resend SDK never throws on API errors — it always resolves with
+// { data: null, error }. Without this check, a rejected send (bad
+// recipient, missing domain verification, etc.) would look identical to a
+// successful one to every caller's try/catch.
+function assertSent<T>(result: { data: T | null; error: { message: string; name: string } | null }): T {
+  if (result.error) {
+    throw new Error(`Resend: ${result.error.name} - ${result.error.message}`);
+  }
+  return result.data as T;
+}
+
 export async function sendConfirmationEmail(info: BookingEmailInfo) {
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to: info.inviteeEmail,
     subject: `Confirmado: ${info.eventTitle}`,
@@ -27,10 +38,11 @@ export async function sendConfirmationEmail(info: BookingEmailInfo) {
       cancelUrl: info.cancelUrl,
     }),
   });
+  assertSent(result);
 }
 
 export async function sendReminderEmail(info: BookingEmailInfo) {
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to: info.inviteeEmail,
     subject: `Lembrete: ${info.eventTitle} em breve`,
@@ -42,12 +54,13 @@ export async function sendReminderEmail(info: BookingEmailInfo) {
       cancelUrl: info.cancelUrl,
     }),
   });
+  assertSent(result);
 }
 
 export async function sendCancellationEmail(
   info: Pick<BookingEmailInfo, "eventTitle" | "formattedDateTime" | "inviteeName" | "inviteeEmail">,
 ) {
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to: info.inviteeEmail,
     subject: `Cancelado: ${info.eventTitle}`,
@@ -57,4 +70,5 @@ export async function sendCancellationEmail(
       inviteeName: info.inviteeName,
     }),
   });
+  assertSent(result);
 }
