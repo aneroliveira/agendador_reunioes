@@ -1,9 +1,16 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import { render } from "@react-email/components";
 import ConfirmationEmail from "@/emails/confirmation";
 import ReminderEmail from "@/emails/reminder";
 import CancellationEmail from "@/emails/cancellation";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
 export interface BookingEmailInfo {
   eventTitle: string;
@@ -14,61 +21,50 @@ export interface BookingEmailInfo {
   cancelUrl: string;
 }
 
-// The Resend SDK never throws on API errors — it always resolves with
-// { data: null, error }. Without this check, a rejected send (bad
-// recipient, missing domain verification, etc.) would look identical to a
-// successful one to every caller's try/catch.
-function assertSent<T>(result: { data: T | null; error: { message: string; name: string } | null }): T {
-  if (result.error) {
-    throw new Error(`Resend: ${result.error.name} - ${result.error.message}`);
-  }
-  return result.data as T;
+async function sendMail(to: string, subject: string, html: string) {
+  await transporter.sendMail({
+    from: `"${process.env.EMAIL_FROM_NAME ?? "Agendador"}" <${process.env.GMAIL_USER}>`,
+    to,
+    subject,
+    html,
+  });
 }
 
 export async function sendConfirmationEmail(info: BookingEmailInfo) {
-  const result = await resend.emails.send({
-    from: process.env.EMAIL_FROM!,
-    to: info.inviteeEmail,
-    subject: `Confirmado: ${info.eventTitle}`,
-    react: ConfirmationEmail({
+  const html = await render(
+    ConfirmationEmail({
       eventTitle: info.eventTitle,
       formattedDateTime: info.formattedDateTime,
       inviteeName: info.inviteeName,
       meetLink: info.meetLink,
       cancelUrl: info.cancelUrl,
     }),
-  });
-  assertSent(result);
+  );
+  await sendMail(info.inviteeEmail, `Confirmado: ${info.eventTitle}`, html);
 }
 
 export async function sendReminderEmail(info: BookingEmailInfo) {
-  const result = await resend.emails.send({
-    from: process.env.EMAIL_FROM!,
-    to: info.inviteeEmail,
-    subject: `Lembrete: ${info.eventTitle} em breve`,
-    react: ReminderEmail({
+  const html = await render(
+    ReminderEmail({
       eventTitle: info.eventTitle,
       formattedDateTime: info.formattedDateTime,
       inviteeName: info.inviteeName,
       meetLink: info.meetLink,
       cancelUrl: info.cancelUrl,
     }),
-  });
-  assertSent(result);
+  );
+  await sendMail(info.inviteeEmail, `Lembrete: ${info.eventTitle} em breve`, html);
 }
 
 export async function sendCancellationEmail(
   info: Pick<BookingEmailInfo, "eventTitle" | "formattedDateTime" | "inviteeName" | "inviteeEmail">,
 ) {
-  const result = await resend.emails.send({
-    from: process.env.EMAIL_FROM!,
-    to: info.inviteeEmail,
-    subject: `Cancelado: ${info.eventTitle}`,
-    react: CancellationEmail({
+  const html = await render(
+    CancellationEmail({
       eventTitle: info.eventTitle,
       formattedDateTime: info.formattedDateTime,
       inviteeName: info.inviteeName,
     }),
-  });
-  assertSent(result);
+  );
+  await sendMail(info.inviteeEmail, `Cancelado: ${info.eventTitle}`, html);
 }
