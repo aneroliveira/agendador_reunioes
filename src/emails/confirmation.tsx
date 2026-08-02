@@ -12,6 +12,7 @@ export interface ConfirmationEmailProps {
   startTimeUTC: Date;
   endTimeUTC: Date;
   inviteeNotes?: string | null;
+  meetingProvider?: "GOOGLE_MEET" | "TEAMS";
   accentColor: string;
 }
 
@@ -24,8 +25,10 @@ export default function ConfirmationEmail({
   startTimeUTC,
   endTimeUTC,
   inviteeNotes,
+  meetingProvider,
   accentColor,
 }: ConfirmationEmailProps) {
+  const meetLinkLabel = meetingProvider === "TEAMS" ? "Link do Microsoft Teams" : "Link do Google Meet";
   return (
     <EmailLayout previewText={`Reunião confirmada: ${eventTitle}`} accentColor={accentColor}>
       <StatusBadge status="confirmed" accentColor={accentColor} />
@@ -37,7 +40,7 @@ export default function ConfirmationEmail({
       <Text style={{ fontSize: "16px", fontWeight: "bold" }}>{formattedDateTime}</Text>
       {meetLink && (
         <Text>
-          Link da videochamada: <Link href={meetLink}>{meetLink}</Link>
+          {meetLinkLabel}: <Link href={meetLink}>{meetLink}</Link>
         </Text>
       )}
       {inviteeNotes && (

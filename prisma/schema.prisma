@@ -26,7 +26,12 @@ model OwnerAccount {
   introText          String?   @db.Text // shown on the public booking page header
   linkedinUrl        String?
   whatsappUrl        String?
+  instagramUrl       String?
+  websiteUrl         String?
   themeColor         String    @default("#c4677a") // hex accent color for the public site + emails
+  coverImageUrl      String? // banner image behind the avatar on the public booking page
+  avatarImageUrl     String? // real profile photo; falls back to the initials avatar when empty
+  teamsMeetingLink   String? // fixed Microsoft Teams room link, offered as a video-call choice alongside Google Meet
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -82,6 +87,7 @@ model Booking {
 
   googleEventId      String?
   meetLink           String?
+  meetingProvider    MeetingProvider @default(GOOGLE_MEET)
   calendarSyncStatus String  @default("synced") // synced | pending_retry | failed
 
   cancelToken     String    @unique @default(cuid())
@@ -98,4 +104,9 @@ model Booking {
 enum BookingStatus {
   CONFIRMED
   CANCELLED
+}
+
+enum MeetingProvider {
+  GOOGLE_MEET
+  TEAMS
 }

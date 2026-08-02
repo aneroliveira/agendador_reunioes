@@ -12,15 +12,18 @@ export function ProfileForm({
   initialIntroText,
   initialLinkedinUrl,
   initialWhatsappUrl,
+  initialTeamsMeetingLink,
 }: {
   initialIntroText: string;
   initialLinkedinUrl: string;
   initialWhatsappUrl: string;
+  initialTeamsMeetingLink: string;
 }) {
   const router = useRouter();
   const [introText, setIntroText] = useState(initialIntroText);
   const [linkedinUrl, setLinkedinUrl] = useState(initialLinkedinUrl);
   const [whatsappUrl, setWhatsappUrl] = useState(initialWhatsappUrl);
+  const [teamsMeetingLink, setTeamsMeetingLink] = useState(initialTeamsMeetingLink);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export function ProfileForm({
       const res = await fetch("/api/admin/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ introText, linkedinUrl, whatsappUrl }),
+        body: JSON.stringify({ introText, linkedinUrl, whatsappUrl, teamsMeetingLink }),
       });
       if (!res.ok) throw new Error();
       setSaved(true);
@@ -71,6 +74,15 @@ export function ProfileForm({
               value={whatsappUrl}
               onChange={(e) => setWhatsappUrl(e.target.value)}
               placeholder="https://wa.me/55..."
+            />
+          </div>
+          <div>
+            <Label htmlFor="teamsMeetingLink">Link do Microsoft Teams</Label>
+            <Input
+              id="teamsMeetingLink"
+              value={teamsMeetingLink}
+              onChange={(e) => setTeamsMeetingLink(e.target.value)}
+              placeholder="https://teams.microsoft.com/l/meetup-join/..."
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

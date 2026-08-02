@@ -51,6 +51,10 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
         eventDescription={eventType.description}
         durationMinutes={eventType.durationMinutes}
         bookingHorizonDays={owner.bookingHorizonDays}
+        availableProviders={{
+          googleMeet: Boolean(owner.googleRefreshToken),
+          teams: Boolean(owner.teamsMeetingLink),
+        }}
       />
     </main>
   );

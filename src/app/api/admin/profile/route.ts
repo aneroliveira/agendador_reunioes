@@ -7,6 +7,7 @@ const bodySchema = z.object({
   introText: z.string().trim().max(2000).optional(),
   linkedinUrl: z.string().trim().max(300).optional(),
   whatsappUrl: z.string().trim().max(300).optional(),
+  teamsMeetingLink: z.string().trim().max(300).optional(),
   themeColor: z
     .string()
     .trim()
@@ -26,7 +27,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Dados inválidos", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { introText, linkedinUrl, whatsappUrl, themeColor } = parsed.data;
+  const { introText, linkedinUrl, whatsappUrl, teamsMeetingLink, themeColor } = parsed.data;
 
   await prisma.ownerAccount.update({
     where: { id: 1 },
@@ -34,6 +35,9 @@ export async function PATCH(request: NextRequest) {
       ...(introText !== undefined ? { introText: introText.length > 0 ? introText : null } : {}),
       ...(linkedinUrl !== undefined ? { linkedinUrl: linkedinUrl.length > 0 ? linkedinUrl : null } : {}),
       ...(whatsappUrl !== undefined ? { whatsappUrl: whatsappUrl.length > 0 ? whatsappUrl : null } : {}),
+      ...(teamsMeetingLink !== undefined
+        ? { teamsMeetingLink: teamsMeetingLink.length > 0 ? teamsMeetingLink : null }
+        : {}),
       ...(themeColor !== undefined ? { themeColor } : {}),
     },
   });

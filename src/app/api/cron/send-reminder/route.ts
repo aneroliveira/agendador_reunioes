@@ -36,6 +36,7 @@ async function handler(request: NextRequest) {
     inviteeName: booking.inviteeName,
     inviteeEmail: booking.inviteeEmail,
     meetLink: booking.meetLink,
+    meetingProvider: booking.meetingProvider,
     cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${booking.cancelToken}`,
     startTimeUTC: booking.startTimeUTC,
     endTimeUTC: booking.endTimeUTC,

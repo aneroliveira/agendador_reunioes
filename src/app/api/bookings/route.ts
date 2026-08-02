@@ -15,6 +15,7 @@ const bodySchema = z.object({
   inviteeEmail: z.email(),
   inviteeTimezone: z.string().min(1),
   inviteeNotes: z.string().trim().max(2000).optional(),
+  meetingProvider: z.enum(["GOOGLE_MEET", "TEAMS"]).optional(),
   // Honeypot: a hidden field real visitors never see or fill. Bots that
   // blindly fill every input tend to fill it, so a non-empty value here is
   // treated as spam. Optional so requests that omit it entirely still pass.
@@ -31,7 +32,8 @@ export async function POST(request: NextRequest) {
     // Pretend success so bots don't learn to leave the honeypot alone.
     return NextResponse.json({ id: "ok", cancelToken: "", startTimeUTC: "", endTimeUTC: "" }, { status: 201 });
   }
-  const { eventTypeSlug, startTimeUTC, inviteeName, inviteeEmail, inviteeTimezone, inviteeNotes } = parsed.data;
+  const { eventTypeSlug, startTimeUTC, inviteeName, inviteeEmail, inviteeTimezone, inviteeNotes, meetingProvider: requestedProvider } =
+    parsed.data;
 
   const [owner, eventType] = await Promise.all([
     prisma.ownerAccount.findUnique({ where: { id: 1 } }),
@@ -47,6 +49,19 @@ export async function POST(request: NextRequest) {
   if (!eventType || !eventType.isActive) {
     return NextResponse.json({ error: "Tipo de reunião não encontrado" }, { status: 404 });
   }
+
+  // Never trust the client's choice blindly — re-derive what's actually
+  // connected and fall back sensibly if the submitted provider isn't.
+  const googleAvailable = Boolean(owner.googleRefreshToken);
+  const teamsAvailable = Boolean(owner.teamsMeetingLink);
+  const meetingProvider: "GOOGLE_MEET" | "TEAMS" =
+    requestedProvider === "TEAMS" && teamsAvailable
+      ? "TEAMS"
+      : requestedProvider === "GOOGLE_MEET" && googleAvailable
+        ? "GOOGLE_MEET"
+        : teamsAvailable && !googleAvailable
+          ? "TEAMS"
+          : "GOOGLE_MEET";
 
   const requestedStart = new Date(startTimeUTC);
   const requestedEnd = new Date(requestedStart.getTime() + eventType.durationMinutes * 60_000);
@@ -85,6 +100,7 @@ export async function POST(request: NextRequest) {
         startTimeUTC: requestedStart,
         endTimeUTC: requestedEnd,
         activeSlotKey,
+        meetingProvider,
       },
     });
 
@@ -95,20 +111,26 @@ export async function POST(request: NextRequest) {
       const calendarEvent = await createCalendarEvent({
         summary: `${eventType.title} com ${inviteeName}`,
         description: inviteeNotes,
+        location: meetingProvider === "TEAMS" ? (owner.teamsMeetingLink ?? undefined) : undefined,
         startTimeUTC: requestedStart,
         endTimeUTC: requestedEnd,
         attendeeEmail: inviteeEmail,
         attendeeName: inviteeName,
+        conferenceType: meetingProvider === "TEAMS" ? "none" : "google_meet",
       });
+      const meetLink = meetingProvider === "TEAMS" ? (owner.teamsMeetingLink ?? null) : (calendarEvent?.meetLink ?? null);
       if (calendarEvent) {
         await prisma.booking.update({
           where: { id: booking.id },
           data: {
             googleEventId: calendarEvent.googleEventId,
-            meetLink: calendarEvent.meetLink,
+            meetLink,
             calendarSyncStatus: "synced",
           },
         });
+      } else if (meetingProvider === "TEAMS") {
+        // Google Calendar isn't connected, but a fixed Teams link doesn't need it.
+        await prisma.booking.update({ where: { id: booking.id }, data: { meetLink } });
       }
     } catch (err) {
       console.error("Falha ao criar evento no Google Calendar para a reserva", booking.id, err);
@@ -139,6 +161,7 @@ export async function POST(request: NextRequest) {
         inviteeName,
         inviteeEmail,
         meetLink: freshBooking.meetLink,
+        meetingProvider: freshBooking.meetingProvider,
         cancelUrl,
         startTimeUTC: requestedStart,
         endTimeUTC: requestedEnd,

@@ -26,6 +26,7 @@ export interface BookingEmailInfo {
   endTimeUTC: Date;
   eventTypeSlug: string;
   inviteeNotes?: string | null;
+  meetingProvider?: "GOOGLE_MEET" | "TEAMS";
 }
 
 interface Attachment {
@@ -88,6 +89,7 @@ export async function sendConfirmationEmail(info: BookingEmailInfo) {
       startTimeUTC: info.startTimeUTC,
       endTimeUTC: info.endTimeUTC,
       inviteeNotes: info.inviteeNotes,
+      meetingProvider: info.meetingProvider,
       accentColor,
     }),
   );
@@ -107,6 +109,7 @@ export async function sendReminderEmail(info: BookingEmailInfo) {
       startTimeUTC: info.startTimeUTC,
       endTimeUTC: info.endTimeUTC,
       inviteeNotes: info.inviteeNotes,
+      meetingProvider: info.meetingProvider,
       accentColor,
     }),
   );

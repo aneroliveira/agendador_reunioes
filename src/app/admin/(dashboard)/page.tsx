@@ -76,6 +76,7 @@ export default async function AdminDashboardPage({
         initialIntroText={owner?.introText ?? ""}
         initialLinkedinUrl={owner?.linkedinUrl ?? ""}
         initialWhatsappUrl={owner?.whatsappUrl ?? ""}
+        initialTeamsMeetingLink={owner?.teamsMeetingLink ?? ""}
       />
 
       <AppearanceForm initialThemeColor={owner?.themeColor ?? "#c4677a"} />

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock } from "lucide-react";
+import { Clock, Users, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,12 +43,14 @@ export function BookingForm({
   eventDescription,
   durationMinutes,
   bookingHorizonDays,
+  availableProviders,
 }: {
   eventTypeSlug: string;
   eventTitle: string;
   eventDescription: string | null;
   durationMinutes: number;
   bookingHorizonDays: number;
+  availableProviders: { googleMeet: boolean; teams: boolean };
 }) {
   const router = useRouter();
   const [visitorTimezone, setVisitorTimezone] = useState("UTC");
@@ -67,6 +69,11 @@ export function BookingForm({
   // long scroll past the whole grid to reach the form. At lg+ it stays
   // visible regardless (see the `lg:contents`/`lg:flex` overrides below).
   const [mobilePickerOpen, setMobilePickerOpen] = useState(true);
+
+  const bothProvidersAvailable = availableProviders.googleMeet && availableProviders.teams;
+  const [meetingProvider, setMeetingProvider] = useState<"GOOGLE_MEET" | "TEAMS">(
+    availableProviders.googleMeet ? "GOOGLE_MEET" : "TEAMS",
+  );
 
   const [inviteeName, setInviteeName] = useState("");
   const [inviteeEmail, setInviteeEmail] = useState("");
@@ -191,6 +198,7 @@ export function BookingForm({
           inviteeEmail,
           inviteeTimezone: visitorTimezone,
           inviteeNotes: inviteeNotes || undefined,
+          meetingProvider: bothProvidersAvailable ? meetingProvider : undefined,
           company,
         }),
       });
@@ -388,6 +396,35 @@ export function BookingForm({
                     <Label htmlFor="notes">Observações (opcional)</Label>
                     <Textarea id="notes" value={inviteeNotes} onChange={(e) => setInviteeNotes(e.target.value)} />
                   </div>
+                  {bothProvidersAvailable && (
+                    <div role="radiogroup" aria-label="Videochamada">
+                      <Label>Videochamada</Label>
+                      <div className="mt-1 flex gap-2">
+                        <Button
+                          type="button"
+                          role="radio"
+                          aria-checked={meetingProvider === "GOOGLE_MEET"}
+                          variant={meetingProvider === "GOOGLE_MEET" ? "default" : "outline"}
+                          className="flex-1"
+                          onClick={() => setMeetingProvider("GOOGLE_MEET")}
+                        >
+                          <Video data-icon="inline-start" className="size-4" />
+                          Google Meet
+                        </Button>
+                        <Button
+                          type="button"
+                          role="radio"
+                          aria-checked={meetingProvider === "TEAMS"}
+                          variant={meetingProvider === "TEAMS" ? "default" : "outline"}
+                          className="flex-1"
+                          onClick={() => setMeetingProvider("TEAMS")}
+                        >
+                          <Users data-icon="inline-start" className="size-4" />
+                          Microsoft Teams
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {submitError && <p className="text-sm text-destructive">{submitError}</p>}
                   <Button type="submit" disabled={submitting}>
                     {submitting ? "Confirmando…" : "Confirmar reunião"}

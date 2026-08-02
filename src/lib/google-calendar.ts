@@ -90,33 +90,42 @@ export async function getBusyIntervals(timeMinUTC: Date, timeMaxUTC: Date): Prom
 export async function createCalendarEvent(params: {
   summary: string;
   description?: string;
+  location?: string;
   startTimeUTC: Date;
   endTimeUTC: Date;
   attendeeEmail: string;
   attendeeName: string;
+  /** "none" skips Google's auto-generated Meet link — used when the invitee picked a fixed Teams link instead. Defaults to "google_meet". */
+  conferenceType?: "google_meet" | "none";
 }): Promise<{ googleEventId: string; meetLink: string | null } | null> {
   const client = await getAuthenticatedClient();
   if (!client) return null;
 
   const owner = await prisma.ownerAccount.findUnique({ where: { id: 1 } });
   const calendar = google.calendar({ version: "v3", auth: client });
+  const wantsGoogleMeet = (params.conferenceType ?? "google_meet") === "google_meet";
 
   const res = await calendar.events.insert({
     calendarId: owner!.googleCalendarId,
-    conferenceDataVersion: 1,
+    conferenceDataVersion: wantsGoogleMeet ? 1 : undefined,
     sendUpdates: "externalOnly",
     requestBody: {
       summary: params.summary,
       description: params.description,
+      location: params.location,
       start: { dateTime: params.startTimeUTC.toISOString() },
       end: { dateTime: params.endTimeUTC.toISOString() },
       attendees: [{ email: params.attendeeEmail, displayName: params.attendeeName }],
-      conferenceData: {
-        createRequest: {
-          requestId: randomUUID(),
-          conferenceSolutionKey: { type: "hangoutsMeet" },
-        },
-      },
+      ...(wantsGoogleMeet
+        ? {
+            conferenceData: {
+              createRequest: {
+                requestId: randomUUID(),
+                conferenceSolutionKey: { type: "hangoutsMeet" },
+              },
+            },
+          }
+        : {}),
     },
   });
 
