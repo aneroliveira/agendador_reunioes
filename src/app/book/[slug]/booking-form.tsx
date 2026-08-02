@@ -62,6 +62,11 @@ export function BookingForm({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  // Below the lg breakpoint, the calendar/time grid stacks above the form —
+  // once a slot is picked it collapses out of the way instead of forcing a
+  // long scroll past the whole grid to reach the form. At lg+ it stays
+  // visible regardless (see the `lg:contents`/`lg:flex` overrides below).
+  const [mobilePickerOpen, setMobilePickerOpen] = useState(true);
 
   const [inviteeName, setInviteeName] = useState("");
   const [inviteeEmail, setInviteeEmail] = useState("");
@@ -152,6 +157,11 @@ export function BookingForm({
   // available date until the visitor explicitly picks one.
   const effectiveSelectedDate = selectedDate ?? availableDates[0] ?? anyDates[0] ?? null;
 
+  function selectSlot(slot: Slot) {
+    setSelectedSlot(slot);
+    setMobilePickerOpen(false);
+  }
+
   function formatDateLabel(dateStr: string) {
     const d = new Date(`${dateStr}T12:00:00`);
     return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
@@ -236,6 +246,11 @@ export function BookingForm({
 
         {!loadError && (
           <div className="flex flex-col gap-4 lg:flex-row">
+            <div
+              className={
+                selectedSlot && !mobilePickerOpen ? "hidden lg:contents" : "flex flex-col gap-4 lg:contents"
+              }
+            >
             <div className="sm:w-64">
               <div className="mb-2 flex items-center justify-between">
                 <Button
@@ -308,7 +323,7 @@ export function BookingForm({
                       disabled={submitting || !slot.available}
                       title={slot.available ? undefined : "Já ocupado"}
                       className={!slot.available ? "text-muted-foreground line-through" : undefined}
-                      onClick={() => setSelectedSlot(slot)}
+                      onClick={() => selectSlot(slot)}
                     >
                       {formatTimeLabel(slot.startUTC)}
                     </Button>
@@ -316,17 +331,31 @@ export function BookingForm({
                 </div>
               )}
             </div>
+            </div>
 
             {selectedSlot && (
               <div
                 key={selectedSlot.startUTC}
                 className="animate-in fade-in slide-in-from-right-2 duration-300 lg:w-72 lg:border-l lg:pl-4"
               >
-                <p className="mb-2 text-sm font-medium text-muted-foreground">Agendamento</p>
-                <p className="mb-2 text-sm font-medium">
-                  {formatDateLabel(new Date(selectedSlot.startUTC).toLocaleDateString("en-CA", { timeZone: visitorTimezone }))}{" "}
-                  às {formatTimeLabel(selectedSlot.startUTC)}
-                </p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Agendamento</p>
+                    <p className="text-sm font-medium">
+                      {formatDateLabel(new Date(selectedSlot.startUTC).toLocaleDateString("en-CA", { timeZone: visitorTimezone }))}{" "}
+                      às {formatTimeLabel(selectedSlot.startUTC)}
+                    </p>
+                  </div>
+                  {!mobilePickerOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setMobilePickerOpen(true)}
+                      className="shrink-0 text-xs text-muted-foreground underline underline-offset-4 lg:hidden"
+                    >
+                      Trocar horário
+                    </button>
+                  )}
+                </div>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                   {/* Honeypot: hidden from real visitors, tempting for bots that fill every field. */}
                   <div className="absolute left-[-9999px]" aria-hidden="true">

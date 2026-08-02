@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +20,7 @@ interface BookingSummary {
   status: "CONFIRMED" | "CANCELLED";
   inviteeName: string;
   startTimeUTC: string;
-  eventType: { title: string; durationMinutes: number };
+  eventType: { title: string; durationMinutes: number; slug: string };
 }
 
 export function CancelPanel({ cancelToken }: { cancelToken: string }) {
@@ -74,7 +75,13 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   if (cancelled || booking.status === "CANCELLED") {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm">Reunião cancelada.</CardContent>
+        <CardContent className="flex flex-col items-start gap-1 pt-6">
+          <h1 className="text-xl font-semibold">Cancelado!</h1>
+          <p className="text-sm text-muted-foreground">Sua reunião foi cancelada.</p>
+          <Button className="mt-3" render={<Link href={`/book/${booking.eventType.slug}`} />}>
+            Fazer novo agendamento
+          </Button>
+        </CardContent>
       </Card>
     );
   }

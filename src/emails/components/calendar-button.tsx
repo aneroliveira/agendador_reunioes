@@ -1,6 +1,6 @@
 import { Link } from "@react-email/components";
 import { getReadableForeground } from "@/lib/color";
-import { formatIcsDate } from "@/lib/ics";
+import { buildGoogleCalendarUrl } from "@/lib/ics";
 
 export function CalendarButton({
   title,
@@ -17,15 +17,7 @@ export function CalendarButton({
   endUTC: Date;
   accentColor: string;
 }) {
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: title,
-    dates: `${formatIcsDate(startUTC)}/${formatIcsDate(endUTC)}`,
-  });
-  if (description) params.set("details", description);
-  if (location) params.set("location", location);
-
-  const href = `https://calendar.google.com/calendar/render?${params.toString()}`;
+  const href = buildGoogleCalendarUrl({ title, description, location, startUTC, endUTC });
 
   return (
     <Link

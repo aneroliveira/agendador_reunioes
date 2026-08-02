@@ -19,6 +19,24 @@ export function formatIcsDate(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
+/** Builds an "Add to Google Calendar" link — shared by the email button and the confirmation page's button. */
+export function buildGoogleCalendarUrl(params: {
+  title: string;
+  description?: string;
+  location?: string;
+  startUTC: Date;
+  endUTC: Date;
+}): string {
+  const query = new URLSearchParams({
+    action: "TEMPLATE",
+    text: params.title,
+    dates: `${formatIcsDate(params.startUTC)}/${formatIcsDate(params.endUTC)}`,
+  });
+  if (params.description) query.set("details", params.description);
+  if (params.location) query.set("location", params.location);
+  return `https://calendar.google.com/calendar/render?${query.toString()}`;
+}
+
 function escapeIcsText(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }

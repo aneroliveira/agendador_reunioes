@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const booking = await prisma.booking.findUnique({
     where: { cancelToken },
-    include: { eventType: { select: { title: true, durationMinutes: true } } },
+    include: { eventType: { select: { title: true, durationMinutes: true, slug: true } } },
   });
   if (!booking) {
     return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
