@@ -1,6 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -13,9 +24,11 @@ interface BookingSummary {
 
 export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   const [booking, setBooking] = useState<BookingSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/bookings/cancel/${cancelToken}`)
@@ -24,26 +37,28 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
         return res.json();
       })
       .then(setBooking)
-      .catch(() => setError("Reserva não encontrada."));
+      .catch(() => setLoadError("Reserva não encontrada."));
   }, [cancelToken]);
 
   async function handleCancel() {
     setCancelling(true);
+    setCancelError(null);
     try {
       const res = await fetch(`/api/bookings/cancel/${cancelToken}`, { method: "POST" });
       if (!res.ok) throw new Error();
       setCancelled(true);
+      setDialogOpen(false);
     } catch {
-      setError("Não foi possível cancelar. Tente novamente.");
+      setCancelError("Não foi possível cancelar. Tente novamente.");
     } finally {
       setCancelling(false);
     }
   }
 
-  if (error) {
+  if (loadError) {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        <CardContent className="pt-6 text-sm text-destructive">{loadError}</CardContent>
       </Card>
     );
   }
@@ -64,17 +79,44 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
     );
   }
 
+  const formattedStart = new Date(booking.startTimeUTC).toLocaleString("pt-BR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 pt-6">
         <h1 className="text-lg font-semibold">{booking.eventType.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          {new Date(booking.startTimeUTC).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" })}
-        </p>
+        <p className="text-sm text-muted-foreground">{formattedStart}</p>
         <p className="text-sm">Convidado(a): {booking.inviteeName}</p>
-        <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className="w-fit">
-          {cancelling ? "Cancelando…" : "Cancelar reunião"}
-        </Button>
+        <AlertDialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            // Não deixa fechar (Escape/clique fora) enquanto o cancelamento está em andamento.
+            if (cancelling) return;
+            setDialogOpen(open);
+          }}
+        >
+          <AlertDialogTrigger render={<Button variant="destructive" className="w-fit" />}>
+            Cancelar reunião
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar esta reunião?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {booking.eventType.title}, em {formattedStart}. Essa ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {cancelError && <p className="text-sm text-destructive">{cancelError}</p>}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelling}>Manter reunião</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={handleCancel} disabled={cancelling}>
+                {cancelling ? "Cancelando…" : "Sim, cancelar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
