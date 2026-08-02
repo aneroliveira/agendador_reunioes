@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ interface BookingSummary {
 }
 
 export function CancelPanel({ cancelToken }: { cancelToken: string }) {
+  const router = useRouter();
   const [booking, setBooking] = useState<BookingSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -92,39 +94,50 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   });
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 pt-6">
-        <h1 className="text-lg font-semibold">{booking.eventType.title}</h1>
-        <p className="text-sm text-muted-foreground">{formattedStart}</p>
-        <p className="text-sm">Convidado(a): {booking.inviteeName}</p>
-        <AlertDialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            // Não deixa fechar (Escape/clique fora) enquanto o cancelamento está em andamento.
-            if (cancelling) return;
-            setDialogOpen(open);
-          }}
-        >
-          <AlertDialogTrigger render={<Button variant="destructive" className="w-fit" />}>
-            Cancelar reunião
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Cancelar esta reunião?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {booking.eventType.title}, em {formattedStart}. Essa ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {cancelError && <p className="text-sm text-destructive">{cancelError}</p>}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={cancelling}>Manter reunião</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleCancel} disabled={cancelling}>
-                {cancelling ? "Cancelando…" : "Sim, cancelar"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
+    <div className="relative">
+      <div className="absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full border-2 border-destructive bg-background ring-4 ring-background">
+        <span className="text-lg leading-none font-bold text-destructive">?</span>
+      </div>
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-6">
+          <h1 className="text-2xl font-semibold">Cancelar reunião</h1>
+          <p className="text-base font-medium">{booking.eventType.title}</p>
+          <p className="text-sm text-muted-foreground">{formattedStart}</p>
+          <p className="text-sm">Convidado(a): {booking.inviteeName}</p>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="w-fit" onClick={() => router.back()}>
+              Voltar
+            </Button>
+            <AlertDialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                // Não deixa fechar (Escape/clique fora) enquanto o cancelamento está em andamento.
+                if (cancelling) return;
+                setDialogOpen(open);
+              }}
+            >
+              <AlertDialogTrigger render={<Button variant="destructive" className="w-fit" />}>
+                Cancelar reunião
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancelar esta reunião?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {booking.eventType.title}, em {formattedStart}. Essa ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {cancelError && <p className="text-sm text-destructive">{cancelError}</p>}
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={cancelling}>Manter reunião</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" onClick={handleCancel} disabled={cancelling}>
+                    {cancelling ? "Cancelando…" : "Sim, cancelar"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
