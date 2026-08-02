@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     now: new Date(),
   });
 
-  const isValidSlot = validSlots.some((s) => s.startUTC.getTime() === requestedStart.getTime());
+  const isValidSlot = validSlots.available.some((s) => s.startUTC.getTime() === requestedStart.getTime());
   if (!isValidSlot) {
     return NextResponse.json(
       { error: "Esse horário não está mais disponível. Escolha outro." },
@@ -133,12 +133,16 @@ export async function POST(request: NextRequest) {
     // because Resend or QStash had a hiccup.
     try {
       await sendConfirmationEmail({
+        bookingId: booking.id,
         eventTitle: eventType.title,
         formattedDateTime,
         inviteeName,
         inviteeEmail,
         meetLink: freshBooking.meetLink,
         cancelUrl,
+        startTimeUTC: requestedStart,
+        endTimeUTC: requestedEnd,
+        eventTypeSlug: eventType.slug,
       });
     } catch (err) {
       console.error("Falha ao enviar e-mail de confirmação para a reserva", booking.id, err);

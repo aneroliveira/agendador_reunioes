@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,18 +15,50 @@ interface Slot {
   endUTC: string;
 }
 
-const DAYS_AHEAD = 14;
+interface DaySlot extends Slot {
+  available: boolean;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Builds the pt-BR weekday header (dom, seg, ter, ...) without depending on any specific calendar year. */
+function buildWeekdayLabels(): string[] {
+  const today = new Date();
+  const mostRecentSunday = new Date(today);
+  mostRecentSunday.setDate(today.getDate() - today.getDay());
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mostRecentSunday);
+    d.setDate(mostRecentSunday.getDate() + i);
+    return new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(d).replace(/\.$/, "").toUpperCase();
+  });
+}
+
+const WEEKDAY_LABELS = buildWeekdayLabels();
 
 export function BookingForm({
   eventTypeSlug,
+  eventTitle,
+  eventDescription,
   durationMinutes,
+  bookingHorizonDays,
 }: {
   eventTypeSlug: string;
+  eventTitle: string;
+  eventDescription: string | null;
   durationMinutes: number;
+  bookingHorizonDays: number;
 }) {
   const router = useRouter();
   const [visitorTimezone, setVisitorTimezone] = useState("UTC");
+
+  const today = useMemo(() => new Date(), []);
+  const [visibleYear, setVisibleYear] = useState(today.getFullYear());
+  const [visibleMonthIndex, setVisibleMonthIndex] = useState(today.getMonth());
+
   const [slots, setSlots] = useState<Slot[] | null>(null);
+  const [unavailableSlots, setUnavailableSlots] = useState<Slot[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -44,48 +78,79 @@ export function BookingForm({
     setVisitorTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
 
-  async function loadAvailability() {
-    setSlots(null);
-    setLoadError(null);
-    const from = new Date();
-    const to = new Date(from.getTime() + DAYS_AHEAD * 24 * 60 * 60_000);
-    try {
-      const res = await fetch(
-        `/api/availability?eventType=${encodeURIComponent(eventTypeSlug)}&from=${from.toISOString()}&to=${to.toISOString()}`,
-      );
-      if (!res.ok) throw new Error("Falha ao carregar horários disponíveis");
-      const data = await res.json();
-      setSlots(data.slots);
-    } catch {
-      setLoadError("Não foi possível carregar os horários disponíveis. Tente recarregar a página.");
-    }
+  const minMonth = today.getFullYear() * 12 + today.getMonth();
+  const horizonDate = new Date(today.getTime() + bookingHorizonDays * 24 * 60 * 60_000);
+  const maxMonth = horizonDate.getFullYear() * 12 + horizonDate.getMonth();
+  const currentMonth = visibleYear * 12 + visibleMonthIndex;
+
+  function goToMonth(deltaMonths: number) {
+    const target = new Date(visibleYear, visibleMonthIndex + deltaMonths, 1);
+    setVisibleYear(target.getFullYear());
+    setVisibleMonthIndex(target.getMonth());
+    setSelectedDate(null);
   }
 
   useEffect(() => {
-    // Data fetch on mount / when the event type changes. `loadAvailability`
-    // is intentionally omitted from deps: it's redefined every render but
-    // only ever needs to re-run when eventTypeSlug changes.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    let cancelled = false;
+    async function loadAvailability() {
+      setSlots(null);
+      setUnavailableSlots([]);
+      setLoadError(null);
+      const monthStart = new Date(visibleYear, visibleMonthIndex, 1);
+      const monthEnd = new Date(visibleYear, visibleMonthIndex + 1, 1);
+      const from = new Date(monthStart.getTime() - 24 * 60 * 60_000);
+      const to = new Date(monthEnd.getTime() + 24 * 60 * 60_000);
+      try {
+        const res = await fetch(
+          `/api/availability?eventType=${encodeURIComponent(eventTypeSlug)}&from=${from.toISOString()}&to=${to.toISOString()}`,
+        );
+        if (!res.ok) throw new Error("Falha ao carregar horários disponíveis");
+        const data = await res.json();
+        if (!cancelled) {
+          setSlots(data.slots);
+          setUnavailableSlots(data.unavailableSlots ?? []);
+        }
+      } catch {
+        if (!cancelled) setLoadError("Não foi possível carregar os horários disponíveis. Tente recarregar a página.");
+      }
+    }
     loadAvailability();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventTypeSlug]);
+    return () => {
+      cancelled = true;
+    };
+  }, [eventTypeSlug, visibleYear, visibleMonthIndex]);
 
   const slotsByDate = useMemo(() => {
-    if (!slots) return new Map<string, Slot[]>();
-    const map = new Map<string, Slot[]>();
-    for (const slot of slots) {
+    if (!slots) return new Map<string, DaySlot[]>();
+    const map = new Map<string, DaySlot[]>();
+    const add = (slot: Slot, available: boolean) => {
       const localDate = new Date(slot.startUTC).toLocaleDateString("en-CA", { timeZone: visitorTimezone });
       const list = map.get(localDate) ?? [];
-      list.push(slot);
+      list.push({ ...slot, available });
       map.set(localDate, list);
+    };
+    for (const slot of slots) add(slot, true);
+    for (const slot of unavailableSlots) add(slot, false);
+    for (const list of map.values()) {
+      list.sort((a, b) => new Date(a.startUTC).getTime() - new Date(b.startUTC).getTime());
     }
     return map;
-  }, [slots, visitorTimezone]);
+  }, [slots, unavailableSlots, visitorTimezone]);
 
-  const availableDates = useMemo(() => Array.from(slotsByDate.keys()).sort(), [slotsByDate]);
+  // Days with at least one bookable slot — used to pick a sensible default
+  // day. Days that only have taken (unavailable) slots aren't good defaults,
+  // but are still selectable directly from the day grid.
+  const availableDates = useMemo(
+    () => Array.from(slotsByDate.entries())
+      .filter(([, daySlots]) => daySlots.some((s) => s.available))
+      .map(([date]) => date)
+      .sort(),
+    [slotsByDate],
+  );
+  const anyDates = useMemo(() => Array.from(slotsByDate.keys()).sort(), [slotsByDate]);
   // Derived instead of mirrored into state+effect: falls back to the first
   // available date until the visitor explicitly picks one.
-  const effectiveSelectedDate = selectedDate ?? availableDates[0] ?? null;
+  const effectiveSelectedDate = selectedDate ?? availableDates[0] ?? anyDates[0] ?? null;
 
   function formatDateLabel(dateStr: string) {
     const d = new Date(`${dateStr}T12:00:00`);
@@ -124,7 +189,6 @@ export function BookingForm({
         setSubmitError(data.error ?? "Não foi possível confirmar a reserva.");
         if (res.status === 409) {
           setSelectedSlot(null);
-          loadAvailability();
         }
         return;
       }
@@ -136,115 +200,175 @@ export function BookingForm({
     }
   }
 
-  if (loadError) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-sm text-destructive">{loadError}</CardContent>
-      </Card>
-    );
-  }
-
-  if (slots === null) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">Carregando horários…</CardContent>
-      </Card>
-    );
-  }
-
-  if (availableDates.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">
-          Não há horários disponíveis nos próximos {DAYS_AHEAD} dias.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (selectedSlot) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="mb-4 text-sm">
-            <span className="font-medium">{formatTimeLabel(selectedSlot.startUTC)}</span>{" "}
-            <span className="text-muted-foreground">
-              ({formatDateLabel(new Date(selectedSlot.startUTC).toLocaleDateString("en-CA", { timeZone: visitorTimezone }))}
-              , {durationMinutes} min, fuso {visitorTimezone})
-            </span>
-          </p>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Honeypot: hidden from real visitors, tempting for bots that fill every field. */}
-            <div className="absolute left-[-9999px]" aria-hidden="true">
-              <label htmlFor="company">Empresa</label>
-              <input
-                id="company"
-                name="company"
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="name">Nome</Label>
-              <Input id="name" required value={inviteeName} onChange={(e) => setInviteeName(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={inviteeEmail}
-                onChange={(e) => setInviteeEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="notes">Observações (opcional)</Label>
-              <Textarea id="notes" value={inviteeNotes} onChange={(e) => setInviteeNotes(e.target.value)} />
-            </div>
-            {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setSelectedSlot(null)} disabled={submitting}>
-                Voltar
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Confirmando…" : "Confirmar reunião"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    );
-  }
+  const daysInMonth = new Date(visibleYear, visibleMonthIndex + 1, 0).getDate();
+  const firstWeekday = new Date(visibleYear, visibleMonthIndex, 1).getDay();
+  const rawMonthLabel = new Date(visibleYear, visibleMonthIndex, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+  // text-transform: capitalize would capitalize every word ("Agosto De 2026");
+  // only the first letter should be uppercase ("Agosto de 2026").
+  const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
+  const dayCells: Array<{ day: number; dateStr: string } | null> = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      return { day, dateStr: `${visibleYear}-${pad(visibleMonthIndex + 1)}-${pad(day)}` };
+    }),
+  ];
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row">
-      <Card className="sm:w-56">
-        <CardContent className="flex flex-col gap-1 pt-6">
-          {availableDates.map((date) => (
-            <Button
-              key={date}
-              variant={date === effectiveSelectedDate ? "default" : "ghost"}
-              className="justify-start capitalize"
-              onClick={() => setSelectedDate(date)}
-            >
-              {formatDateLabel(date)}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-      <Card className="flex-1">
-        <CardContent className="grid grid-cols-2 gap-2 pt-6 sm:grid-cols-3">
-          {(effectiveSelectedDate ? slotsByDate.get(effectiveSelectedDate) ?? [] : []).map((slot) => (
-            <Button key={slot.startUTC} variant="outline" onClick={() => setSelectedSlot(slot)}>
-              {formatTimeLabel(slot.startUTC)}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardContent className="flex flex-col gap-4 pt-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-primary">{eventTitle}</h1>
+            {eventDescription && <p className="mt-1 text-sm text-muted-foreground">{eventDescription}</p>}
+            <Badge variant="secondary" className="mt-2 w-fit">
+              <Clock data-icon="inline-start" className="size-3" />
+              {durationMinutes} minutos
+            </Badge>
+          </div>
+          <p className="shrink-0 text-xs text-muted-foreground">Fuso horário: {visitorTimezone}</p>
+        </div>
+
+        {loadError && <p className="text-sm text-destructive">{loadError}</p>}
+
+        {!loadError && (
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="sm:w-64">
+              <div className="mb-2 flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={currentMonth <= minMonth || submitting}
+                  onClick={() => goToMonth(-1)}
+                  aria-label="Mês anterior"
+                >
+                  ‹
+                </Button>
+                <span className="text-sm font-medium">{monthLabel}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={currentMonth >= maxMonth || submitting}
+                  onClick={() => goToMonth(1)}
+                  aria-label="Próximo mês"
+                >
+                  ›
+                </Button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
+                {WEEKDAY_LABELS.map((label) => (
+                  <div key={label} className="py-1">
+                    {label}
+                  </div>
+                ))}
+                {slots === null
+                  ? Array.from({ length: firstWeekday + daysInMonth }, (_, i) => <div key={i} />)
+                  : dayCells.map((cell, i) => {
+                      if (!cell) return <div key={i} />;
+                      const hasSlots = slotsByDate.has(cell.dateStr);
+                      const isSelected = cell.dateStr === effectiveSelectedDate;
+                      return (
+                        <Button
+                          key={cell.dateStr}
+                          type="button"
+                          variant={isSelected ? "default" : hasSlots ? "outline" : "ghost"}
+                          size="icon-sm"
+                          disabled={!hasSlots || submitting}
+                          onClick={() => setSelectedDate(cell.dateStr)}
+                          className="w-full"
+                        >
+                          {cell.day}
+                        </Button>
+                      );
+                    })}
+              </div>
+            </div>
+
+            <div className="flex-1">
+              {slots === null ? (
+                <p className="text-sm text-muted-foreground">Carregando horários…</p>
+              ) : anyDates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum horário em {monthLabel}. Use as setas para ver outro mês.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {(effectiveSelectedDate ? slotsByDate.get(effectiveSelectedDate) ?? [] : []).map((slot) => (
+                    <Button
+                      key={slot.startUTC}
+                      type="button"
+                      variant={
+                        !slot.available ? "ghost" : selectedSlot?.startUTC === slot.startUTC ? "default" : "outline"
+                      }
+                      disabled={submitting || !slot.available}
+                      title={slot.available ? undefined : "Já ocupado"}
+                      className={!slot.available ? "text-muted-foreground line-through" : undefined}
+                      onClick={() => setSelectedSlot(slot)}
+                    >
+                      {formatTimeLabel(slot.startUTC)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedSlot && (
+              <div
+                key={selectedSlot.startUTC}
+                className="animate-in fade-in slide-in-from-right-2 duration-300 lg:w-72 lg:border-l lg:pl-4"
+              >
+                <p className="mb-2 text-sm font-medium text-muted-foreground">Agendamento</p>
+                <p className="mb-2 text-sm font-medium">
+                  {formatDateLabel(new Date(selectedSlot.startUTC).toLocaleDateString("en-CA", { timeZone: visitorTimezone }))}{" "}
+                  às {formatTimeLabel(selectedSlot.startUTC)}
+                </p>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  {/* Honeypot: hidden from real visitors, tempting for bots that fill every field. */}
+                  <div className="absolute left-[-9999px]" aria-hidden="true">
+                    <label htmlFor="company">Empresa</label>
+                    <input
+                      id="company"
+                      name="company"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="name">Nome</Label>
+                    <Input id="name" required value={inviteeName} onChange={(e) => setInviteeName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      value={inviteeEmail}
+                      onChange={(e) => setInviteeEmail(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="notes">Observações (opcional)</Label>
+                    <Textarea id="notes" value={inviteeNotes} onChange={(e) => setInviteeNotes(e.target.value)} />
+                  </div>
+                  {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Confirmando…" : "Confirmar reunião"}
+                  </Button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

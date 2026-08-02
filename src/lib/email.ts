@@ -3,6 +3,8 @@ import { render } from "@react-email/components";
 import ConfirmationEmail from "@/emails/confirmation";
 import ReminderEmail from "@/emails/reminder";
 import CancellationEmail from "@/emails/cancellation";
+import { prisma } from "./db";
+import { buildInviteIcs } from "./ics";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -13,24 +15,68 @@ const transporter = nodemailer.createTransport({
 });
 
 export interface BookingEmailInfo {
+  bookingId: string;
   eventTitle: string;
   formattedDateTime: string;
   inviteeName: string;
   inviteeEmail: string;
   meetLink: string | null;
   cancelUrl: string;
+  startTimeUTC: Date;
+  endTimeUTC: Date;
+  eventTypeSlug: string;
 }
 
-async function sendMail(to: string, subject: string, html: string) {
+interface Attachment {
+  filename: string;
+  content: string;
+  contentType: string;
+}
+
+async function sendMail(to: string, subject: string, html: string, attachments: Attachment[] = []) {
   await transporter.sendMail({
     from: `"${process.env.EMAIL_FROM_NAME ?? "Agendador"}" <${process.env.GMAIL_USER}>`,
     to,
     subject,
     html,
+    attachments,
   });
 }
 
+async function getAccentColor(): Promise<string> {
+  const owner = await prisma.ownerAccount.findUnique({ where: { id: 1 }, select: { themeColor: true } });
+  return owner?.themeColor ?? "#c4677a";
+}
+
+function buildIcsAttachment(
+  info: Pick<BookingEmailInfo, "bookingId" | "eventTitle" | "startTimeUTC" | "endTimeUTC" | "inviteeEmail" | "inviteeName" | "meetLink">,
+  options: { method: "PUBLISH" | "CANCEL"; status: "CONFIRMED" | "CANCELLED"; sequence: number },
+): Attachment {
+  // Same UID across confirmation/reminder (PUBLISH) and cancellation (CANCEL)
+  // is what lets a calendar client match the CANCEL to the original invite.
+  const ics = buildInviteIcs({
+    uid: `${info.bookingId}@agendador-reunioes`,
+    method: options.method,
+    status: options.status,
+    sequence: options.sequence,
+    summary: info.eventTitle,
+    location: info.meetLink ?? undefined,
+    startUTC: info.startTimeUTC,
+    endUTC: info.endTimeUTC,
+    organizerEmail: process.env.GMAIL_USER ?? "",
+    organizerName: process.env.EMAIL_FROM_NAME ?? "Agendador",
+    attendeeEmail: info.inviteeEmail,
+    attendeeName: info.inviteeName,
+  });
+  return {
+    filename: "convite.ics",
+    content: ics,
+    contentType: `text/calendar; method=${options.method}; charset=UTF-8`,
+  };
+}
+
 export async function sendConfirmationEmail(info: BookingEmailInfo) {
+  const accentColor = await getAccentColor();
   const html = await render(
     ConfirmationEmail({
       eventTitle: info.eventTitle,
@@ -38,12 +84,17 @@ export async function sendConfirmationEmail(info: BookingEmailInfo) {
       inviteeName: info.inviteeName,
       meetLink: info.meetLink,
       cancelUrl: info.cancelUrl,
+      startTimeUTC: info.startTimeUTC,
+      endTimeUTC: info.endTimeUTC,
+      accentColor,
     }),
   );
-  await sendMail(info.inviteeEmail, `Confirmado: ${info.eventTitle}`, html);
+  const attachment = buildIcsAttachment(info, { method: "PUBLISH", status: "CONFIRMED", sequence: 0 });
+  await sendMail(info.inviteeEmail, `Confirmado: ${info.eventTitle}`, html, [attachment]);
 }
 
 export async function sendReminderEmail(info: BookingEmailInfo) {
+  const accentColor = await getAccentColor();
   const html = await render(
     ReminderEmail({
       eventTitle: info.eventTitle,
@@ -51,20 +102,32 @@ export async function sendReminderEmail(info: BookingEmailInfo) {
       inviteeName: info.inviteeName,
       meetLink: info.meetLink,
       cancelUrl: info.cancelUrl,
+      startTimeUTC: info.startTimeUTC,
+      endTimeUTC: info.endTimeUTC,
+      accentColor,
     }),
   );
-  await sendMail(info.inviteeEmail, `Lembrete: ${info.eventTitle} em breve`, html);
+  const attachment = buildIcsAttachment(info, { method: "PUBLISH", status: "CONFIRMED", sequence: 0 });
+  await sendMail(info.inviteeEmail, `Lembrete: ${info.eventTitle} em breve`, html, [attachment]);
 }
 
 export async function sendCancellationEmail(
-  info: Pick<BookingEmailInfo, "eventTitle" | "formattedDateTime" | "inviteeName" | "inviteeEmail">,
+  info: Pick<
+    BookingEmailInfo,
+    "bookingId" | "eventTitle" | "formattedDateTime" | "inviteeName" | "inviteeEmail" | "startTimeUTC" | "endTimeUTC" | "eventTypeSlug" | "meetLink"
+  >,
 ) {
+  const accentColor = await getAccentColor();
+  const bookAgainUrl = `${process.env.NEXT_PUBLIC_APP_URL}/book/${info.eventTypeSlug}`;
   const html = await render(
     CancellationEmail({
       eventTitle: info.eventTitle,
       formattedDateTime: info.formattedDateTime,
       inviteeName: info.inviteeName,
+      bookAgainUrl,
+      accentColor,
     }),
   );
-  await sendMail(info.inviteeEmail, `Cancelado: ${info.eventTitle}`, html);
+  const attachment = buildIcsAttachment(info, { method: "CANCEL", status: "CANCELLED", sequence: 1 });
+  await sendMail(info.inviteeEmail, `Cancelado: ${info.eventTitle}`, html, [attachment]);
 }

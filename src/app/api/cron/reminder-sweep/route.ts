@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       reminderSentAt: null,
       startTimeUTC: { gte: now, lte: soon },
     },
-    include: { eventType: { select: { title: true } } },
+    include: { eventType: { select: { title: true, slug: true } } },
   });
 
   for (const booking of missed) {
@@ -33,12 +33,16 @@ export async function GET(request: NextRequest) {
     );
     try {
       await sendReminderEmail({
+        bookingId: booking.id,
         eventTitle: booking.eventType.title,
         formattedDateTime,
         inviteeName: booking.inviteeName,
         inviteeEmail: booking.inviteeEmail,
         meetLink: booking.meetLink,
         cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${booking.cancelToken}`,
+        startTimeUTC: booking.startTimeUTC,
+        endTimeUTC: booking.endTimeUTC,
+        eventTypeSlug: booking.eventType.slug,
       });
       await prisma.booking.update({ where: { id: booking.id }, data: { reminderSentAt: new Date() } });
     } catch (err) {

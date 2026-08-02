@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { computeAvailableSlots, type AvailableSlot } from "@/lib/availability";
+import { computeAvailableSlots, type ComputedSlots } from "@/lib/availability";
 import { getBusyIntervals } from "@/lib/google-calendar";
 import type { EventType, AvailabilityRule, OwnerAccount } from "@/generated/prisma/client";
 
@@ -15,7 +15,7 @@ export async function computeSlotsForEventType(params: {
   rangeFromUTC: Date;
   rangeToUTC: Date;
   now: Date;
-}): Promise<AvailableSlot[]> {
+}): Promise<ComputedSlots> {
   const { eventType, owner, rangeFromUTC, rangeToUTC, now } = params;
 
   const [localBookings, googleBusy] = await Promise.all([

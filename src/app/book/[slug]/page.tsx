@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { AvatarInitials } from "@/components/avatar-initials";
+import { Badge } from "@/components/ui/badge";
 import { BookingForm } from "./booking-form";
 
 export default async function BookPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -15,13 +17,41 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-12">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{eventType.title}</h1>
-        {eventType.description && <p className="mt-1 text-muted-foreground">{eventType.description}</p>}
-        <p className="mt-1 text-sm text-muted-foreground">{eventType.durationMinutes} minutos</p>
+    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-4 pt-6 pb-12">
+      <div className="flex items-center gap-4">
+        <AvatarInitials name={owner.displayName} accentColor={owner.themeColor} />
+        <div>
+          <h2 className="text-lg font-semibold">{owner.displayName}</h2>
+          {owner.introText && <p className="text-sm text-muted-foreground">{owner.introText}</p>}
+          {(owner.linkedinUrl || owner.whatsappUrl) && (
+            <div className="mt-1 flex gap-2">
+              {owner.linkedinUrl && (
+                <Badge
+                  variant="outline"
+                  render={<a href={owner.linkedinUrl} target="_blank" rel="noopener noreferrer" />}
+                >
+                  LinkedIn
+                </Badge>
+              )}
+              {owner.whatsappUrl && (
+                <Badge
+                  variant="outline"
+                  render={<a href={owner.whatsappUrl} target="_blank" rel="noopener noreferrer" />}
+                >
+                  WhatsApp
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <BookingForm eventTypeSlug={eventType.slug} durationMinutes={eventType.durationMinutes} />
+      <BookingForm
+        eventTypeSlug={eventType.slug}
+        eventTitle={eventType.title}
+        eventDescription={eventType.description}
+        durationMinutes={eventType.durationMinutes}
+        bookingHorizonDays={owner.bookingHorizonDays}
+      />
     </main>
   );
 }

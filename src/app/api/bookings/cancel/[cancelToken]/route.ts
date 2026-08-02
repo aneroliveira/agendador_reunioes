@@ -30,7 +30,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
   const booking = await prisma.booking.findUnique({
     where: { cancelToken },
-    include: { eventType: { select: { title: true } } },
+    include: { eventType: { select: { title: true, slug: true } } },
   });
   if (!booking) {
     return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
@@ -70,10 +70,15 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       minute: "2-digit",
     });
     await sendCancellationEmail({
+      bookingId: booking.id,
       eventTitle: booking.eventType.title,
       formattedDateTime,
       inviteeName: booking.inviteeName,
       inviteeEmail: booking.inviteeEmail,
+      startTimeUTC: booking.startTimeUTC,
+      endTimeUTC: booking.endTimeUTC,
+      eventTypeSlug: booking.eventType.slug,
+      meetLink: booking.meetLink,
     });
   } catch (err) {
     console.error("Falha ao enviar e-mail de cancelamento para a reserva", booking.id, err);

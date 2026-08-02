@@ -34,6 +34,13 @@ export interface AvailableSlot {
   endUTC: Date;
 }
 
+export interface ComputedSlots {
+  /** Bookable slots. */
+  available: AvailableSlot[];
+  /** Slots that exist within working hours but are already taken — shown grayed out, never bookable. */
+  unavailable: AvailableSlot[];
+}
+
 function parseHHMM(value: string): { hour: number; minute: number } {
   const [hour, minute] = value.split(":").map(Number);
   return { hour, minute };
@@ -51,7 +58,7 @@ function intervalsOverlap(aStart: DateTime, aEnd: DateTime, bStart: DateTime, bE
  * arithmetic uses Luxon's real-elapsed-time `plus`, so results stay correct
  * across DST transitions instead of drifting by wall-clock hours.
  */
-export function computeAvailableSlots(params: ComputeAvailableSlotsParams): AvailableSlot[] {
+export function computeAvailableSlots(params: ComputeAvailableSlotsParams): ComputedSlots {
   const {
     rules,
     ownerTimezone,
@@ -73,7 +80,7 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Avai
   const windowStart = DateTime.max(DateTime.fromJSDate(rangeFromUTC, { zone: "utc" }), earliestStart);
   const windowEnd = DateTime.min(DateTime.fromJSDate(rangeToUTC, { zone: "utc" }), latestEnd);
 
-  if (windowEnd <= windowStart) return [];
+  if (windowEnd <= windowStart) return { available: [], unavailable: [] };
 
   const busyDT = busy.map((b) => ({
     start: DateTime.fromJSDate(b.start, { zone: "utc" }),
@@ -87,9 +94,10 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Avai
     list.push(rule);
     activeRulesByDay.set(rule.dayOfWeek, list);
   }
-  if (activeRulesByDay.size === 0) return [];
+  if (activeRulesByDay.size === 0) return { available: [], unavailable: [] };
 
-  const slots: AvailableSlot[] = [];
+  const available: AvailableSlot[] = [];
+  const unavailable: AvailableSlot[] = [];
 
   // Walk owner-local calendar days covering [windowStart, windowEnd], with a
   // one-day pad on each side so a day whose local working hours cross a UTC
@@ -117,10 +125,8 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Avai
           const paddedStart = slotStart.minus({ minutes: bufferBeforeMin });
           const paddedEnd = slotEnd.plus({ minutes: bufferAfterMin });
           const isBusy = busyDT.some((b) => intervalsOverlap(paddedStart, paddedEnd, b.start, b.end));
-
-          if (!isBusy) {
-            slots.push({ startUTC: slotStart.toJSDate(), endUTC: slotEnd.toJSDate() });
-          }
+          const target = isBusy ? unavailable : available;
+          target.push({ startUTC: slotStart.toJSDate(), endUTC: slotEnd.toJSDate() });
         }
 
         slotStart = slotStart.plus({ minutes: durationMinutes });
@@ -130,6 +136,7 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Avai
     cursor = cursor.plus({ days: 1 });
   }
 
-  slots.sort((a, b) => a.startUTC.getTime() - b.startUTC.getTime());
-  return slots;
+  available.sort((a, b) => a.startUTC.getTime() - b.startUTC.getTime());
+  unavailable.sort((a, b) => a.startUTC.getTime() - b.startUTC.getTime());
+  return { available, unavailable };
 }

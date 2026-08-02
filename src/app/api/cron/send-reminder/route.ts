@@ -16,7 +16,7 @@ async function handler(request: NextRequest) {
 
   const booking = await prisma.booking.findUnique({
     where: { id: parsed.data.bookingId },
-    include: { eventType: { select: { title: true } } },
+    include: { eventType: { select: { title: true, slug: true } } },
   });
 
   // Idempotent: already reminded, cancelled, or gone are all fine — QStash
@@ -30,12 +30,16 @@ async function handler(request: NextRequest) {
   );
 
   await sendReminderEmail({
+    bookingId: booking.id,
     eventTitle: booking.eventType.title,
     formattedDateTime,
     inviteeName: booking.inviteeName,
     inviteeEmail: booking.inviteeEmail,
     meetLink: booking.meetLink,
     cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${booking.cancelToken}`,
+    startTimeUTC: booking.startTimeUTC,
+    endTimeUTC: booking.endTimeUTC,
+    eventTypeSlug: booking.eventType.slug,
   });
 
   await prisma.booking.update({ where: { id: booking.id }, data: { reminderSentAt: new Date() } });

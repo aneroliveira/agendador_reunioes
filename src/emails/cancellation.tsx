@@ -1,27 +1,48 @@
-import { Body, Container, Head, Heading, Html, Preview, Text } from "@react-email/components";
+import { Heading, Link, Text } from "@react-email/components";
+import { getReadableForeground } from "@/lib/color";
+import { EmailLayout } from "./components/layout";
+import { StatusBadge } from "./components/status-badge";
 
 export interface CancellationEmailProps {
   eventTitle: string;
   formattedDateTime: string;
   inviteeName: string;
+  bookAgainUrl: string;
+  accentColor: string;
 }
 
-export default function CancellationEmail({ eventTitle, formattedDateTime, inviteeName }: CancellationEmailProps) {
+export default function CancellationEmail({
+  eventTitle,
+  formattedDateTime,
+  inviteeName,
+  bookAgainUrl,
+  accentColor,
+}: CancellationEmailProps) {
   return (
-    <Html>
-      <Head />
-      <Preview>Reunião cancelada: {eventTitle}</Preview>
-      <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f6f6f6", padding: "24px" }}>
-        <Container style={{ backgroundColor: "#ffffff", padding: "32px", borderRadius: "8px" }}>
-          <Heading style={{ fontSize: "20px" }}>Reunião cancelada</Heading>
-          <Text>Olá {inviteeName},</Text>
-          <Text>
-            Sua reunião <strong>{eventTitle}</strong>, que estava marcada para:
-          </Text>
-          <Text style={{ fontSize: "16px", fontWeight: "bold" }}>{formattedDateTime}</Text>
-          <Text>foi cancelada.</Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout previewText={`Reunião cancelada: ${eventTitle}`} accentColor={accentColor}>
+      <StatusBadge status="cancelled" accentColor={accentColor} />
+      <Heading style={{ fontSize: "20px" }}>Reunião cancelada</Heading>
+      <Text>Olá {inviteeName},</Text>
+      <Text>
+        Sua reunião <strong>{eventTitle}</strong>, que estava marcada para:
+      </Text>
+      <Text style={{ fontSize: "16px", fontWeight: "bold" }}>{formattedDateTime}</Text>
+      <Text>foi cancelada.</Text>
+      <Link
+        href={bookAgainUrl}
+        style={{
+          display: "inline-block",
+          backgroundColor: accentColor,
+          color: getReadableForeground(accentColor),
+          padding: "10px 20px",
+          borderRadius: "6px",
+          fontSize: "14px",
+          fontWeight: "bold",
+          textDecoration: "none",
+        }}
+      >
+        Agendar de novo
+      </Link>
+    </EmailLayout>
   );
 }
