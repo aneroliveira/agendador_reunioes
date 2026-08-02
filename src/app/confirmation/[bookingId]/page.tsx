@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { buildGoogleCalendarUrl } from "@/lib/ics";
+import { DecorativeBackground } from "@/components/decorative-background";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ b
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-4 py-12">
+      <DecorativeBackground />
       <div className="relative">
         <div
           className={`absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full ring-4 ring-background ${
