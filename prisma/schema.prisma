@@ -23,6 +23,10 @@ model OwnerAccount {
   googleTokenExpiry  DateTime?
   minNoticeMinutes   Int       @default(120) // can't book less than 2h from now
   bookingHorizonDays Int       @default(60) // can't book more than 60 days out
+  introText          String?   @db.Text // shown on the public booking page header
+  linkedinUrl        String?
+  whatsappUrl        String?
+  themeColor         String    @default("#c4677a") // hex accent color for the public site + emails
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -51,6 +55,9 @@ model AvailabilityRule {
   endTime     String // "18:00" owner-local
   isActive    Boolean   @default(true)
 
+  // One rule per weekday per event type — the admin availability editor
+  // upserts against this instead of managing multiple time blocks per day.
+  @@unique([eventTypeId, dayOfWeek])
   @@index([eventTypeId])
 }
 

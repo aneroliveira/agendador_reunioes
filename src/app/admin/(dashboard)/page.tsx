@@ -3,6 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "./logout-button";
+import { ProfileForm } from "./profile-form";
+import { AppearanceForm } from "./appearance-form";
+import { AvailabilityForm, type AvailabilityRuleInput } from "./availability-form";
 
 export default async function AdminDashboardPage({
   searchParams,
@@ -18,6 +21,24 @@ export default async function AdminDashboardPage({
     orderBy: { startTimeUTC: "asc" },
     take: 20,
     include: { eventType: { select: { title: true } } },
+  });
+
+  // MVP: every active event type shares one weekly schedule, so the editor
+  // just reads/writes the first active event type's rules.
+  const firstActiveEventType = await prisma.eventType.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "asc" },
+    include: { availabilityRules: true },
+  });
+  const rulesByDay = new Map(firstActiveEventType?.availabilityRules.map((r) => [r.dayOfWeek, r]) ?? []);
+  const availabilityRules: AvailabilityRuleInput[] = Array.from({ length: 7 }, (_, dayOfWeek) => {
+    const existing = rulesByDay.get(dayOfWeek);
+    return {
+      dayOfWeek,
+      isActive: existing?.isActive ?? false,
+      startTime: existing?.startTime ?? "09:00",
+      endTime: existing?.endTime ?? "18:00",
+    };
   });
 
   return (
@@ -50,6 +71,16 @@ export default async function AdminDashboardPage({
           )}
         </CardContent>
       </Card>
+
+      <ProfileForm
+        initialIntroText={owner?.introText ?? ""}
+        initialLinkedinUrl={owner?.linkedinUrl ?? ""}
+        initialWhatsappUrl={owner?.whatsappUrl ?? ""}
+      />
+
+      <AppearanceForm initialThemeColor={owner?.themeColor ?? "#c4677a"} />
+
+      <AvailabilityForm initialRules={availabilityRules} />
 
       <div>
         <h2 className="mb-2 text-lg font-medium">Próximas reuniões</h2>
