@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
         cancelUrl,
         startTimeUTC: requestedStart,
         endTimeUTC: requestedEnd,
+        inviteeNotes,
         eventTypeSlug: eventType.slug,
       });
     } catch (err) {

@@ -11,6 +11,7 @@ export interface ConfirmationEmailProps {
   cancelUrl: string;
   startTimeUTC: Date;
   endTimeUTC: Date;
+  inviteeNotes?: string | null;
   accentColor: string;
 }
 
@@ -22,6 +23,7 @@ export default function ConfirmationEmail({
   cancelUrl,
   startTimeUTC,
   endTimeUTC,
+  inviteeNotes,
   accentColor,
 }: ConfirmationEmailProps) {
   return (
@@ -36,6 +38,11 @@ export default function ConfirmationEmail({
       {meetLink && (
         <Text>
           Link da videochamada: <Link href={meetLink}>{meetLink}</Link>
+        </Text>
+      )}
+      {inviteeNotes && (
+        <Text>
+          <strong>Observações:</strong> {inviteeNotes}
         </Text>
       )}
       <CalendarButton

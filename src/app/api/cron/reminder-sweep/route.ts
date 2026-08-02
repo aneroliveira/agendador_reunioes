@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
         startTimeUTC: booking.startTimeUTC,
         endTimeUTC: booking.endTimeUTC,
         eventTypeSlug: booking.eventType.slug,
+        inviteeNotes: booking.inviteeNotes,
       });
       await prisma.booking.update({ where: { id: booking.id }, data: { reminderSentAt: new Date() } });
     } catch (err) {

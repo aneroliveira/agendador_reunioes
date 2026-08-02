@@ -40,6 +40,7 @@ async function handler(request: NextRequest) {
     startTimeUTC: booking.startTimeUTC,
     endTimeUTC: booking.endTimeUTC,
     eventTypeSlug: booking.eventType.slug,
+    inviteeNotes: booking.inviteeNotes,
   });
 
   await prisma.booking.update({ where: { id: booking.id }, data: { reminderSentAt: new Date() } });

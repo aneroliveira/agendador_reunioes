@@ -25,6 +25,7 @@ export interface BookingEmailInfo {
   startTimeUTC: Date;
   endTimeUTC: Date;
   eventTypeSlug: string;
+  inviteeNotes?: string | null;
 }
 
 interface Attachment {
@@ -86,6 +87,7 @@ export async function sendConfirmationEmail(info: BookingEmailInfo) {
       cancelUrl: info.cancelUrl,
       startTimeUTC: info.startTimeUTC,
       endTimeUTC: info.endTimeUTC,
+      inviteeNotes: info.inviteeNotes,
       accentColor,
     }),
   );
@@ -104,6 +106,7 @@ export async function sendReminderEmail(info: BookingEmailInfo) {
       cancelUrl: info.cancelUrl,
       startTimeUTC: info.startTimeUTC,
       endTimeUTC: info.endTimeUTC,
+      inviteeNotes: info.inviteeNotes,
       accentColor,
     }),
   );
