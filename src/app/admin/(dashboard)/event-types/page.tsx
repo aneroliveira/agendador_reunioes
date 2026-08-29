@@ -6,7 +6,10 @@ import { AdminDecorativeBackground } from "@/components/admin-decorative-backgro
 import { EventTypeList } from "./event-type-list";
 
 export default async function EventTypesPage() {
-  const eventTypes = await prisma.eventType.findMany({ orderBy: { createdAt: "asc" } });
+  const eventTypes = await prisma.eventType.findMany({
+    orderBy: { createdAt: "asc" },
+    include: { availabilityRules: true },
+  });
 
   return (
     <main className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
@@ -19,14 +22,26 @@ export default async function EventTypesPage() {
         </Button>
       </div>
       <EventTypeList
-        eventTypes={eventTypes.map((eventType) => ({
-          id: eventType.id,
-          slug: eventType.slug,
-          title: eventType.title,
-          description: eventType.description ?? "",
-          durationMinutes: eventType.durationMinutes,
-          isActive: eventType.isActive,
-        }))}
+        eventTypes={eventTypes.map((eventType) => {
+          const rulesByDay = new Map(eventType.availabilityRules.map((r) => [r.dayOfWeek, r]));
+          return {
+            id: eventType.id,
+            slug: eventType.slug,
+            title: eventType.title,
+            description: eventType.description ?? "",
+            durationMinutes: eventType.durationMinutes,
+            isActive: eventType.isActive,
+            availabilityRules: Array.from({ length: 7 }, (_, dayOfWeek) => {
+              const existing = rulesByDay.get(dayOfWeek);
+              return {
+                dayOfWeek,
+                isActive: existing?.isActive ?? false,
+                startTime: existing?.startTime ?? "09:00",
+                endTime: existing?.endTime ?? "18:00",
+              };
+            }),
+          };
+        })}
       />
     </main>
   );

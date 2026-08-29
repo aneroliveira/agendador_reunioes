@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useToastManager } from "@/components/ui/toast";
 
 interface Slot {
   startUTC: string;
@@ -53,6 +55,7 @@ export function BookingForm({
   availableProviders: { googleMeet: boolean; teams: boolean };
 }) {
   const router = useRouter();
+  const toastManager = useToastManager();
   const [visitorTimezone, setVisitorTimezone] = useState("UTC");
 
   const today = useMemo(() => new Date(), []);
@@ -61,6 +64,7 @@ export function BookingForm({
 
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [unavailableSlots, setUnavailableSlots] = useState<Slot[]>([]);
+  const [holidays, setHolidays] = useState<Map<string, string>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -107,6 +111,7 @@ export function BookingForm({
     async function loadAvailability() {
       setSlots(null);
       setUnavailableSlots([]);
+      setHolidays(new Map());
       setLoadError(null);
       const monthStart = new Date(visibleYear, visibleMonthIndex, 1);
       const monthEnd = new Date(visibleYear, visibleMonthIndex + 1, 1);
@@ -121,6 +126,7 @@ export function BookingForm({
         if (!cancelled) {
           setSlots(data.slots);
           setUnavailableSlots(data.unavailableSlots ?? []);
+          setHolidays(new Map((data.holidays ?? []).map((h: { date: string; label: string }) => [h.date, h.label])));
         }
       } catch {
         if (!cancelled) setLoadError("Não foi possível carregar os horários disponíveis. Tente recarregar a página.");
@@ -290,8 +296,34 @@ export function BookingForm({
                   ? Array.from({ length: firstWeekday + daysInMonth }, (_, i) => <div key={i} />)
                   : dayCells.map((cell, i) => {
                       if (!cell) return <div key={i} />;
+                      const holidayLabel = holidays.get(cell.dateStr);
                       const hasSlots = slotsByDate.has(cell.dateStr);
                       const isSelected = cell.dateStr === effectiveSelectedDate;
+
+                      if (holidayLabel) {
+                        // Not `disabled`: a disabled button won't reliably fire
+                        // click/touch, and the reason needs to reach mobile too
+                        // (as a toast) where there's no hover for the tooltip.
+                        return (
+                          <Tooltip key={cell.dateStr}>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="w-full text-muted-foreground line-through"
+                                  onClick={() => toastManager.add({ title: holidayLabel })}
+                                />
+                              }
+                            >
+                              {cell.day}
+                            </TooltipTrigger>
+                            <TooltipContent>{holidayLabel}</TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+
                       return (
                         <Button
                           key={cell.dateStr}

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import type { AvailabilityRuleInput } from "../availability-form";
 
 export interface EventTypeFormValues {
   id: string;
@@ -15,6 +16,7 @@ export interface EventTypeFormValues {
   description: string;
   durationMinutes: number;
   isActive: boolean;
+  availabilityRules: AvailabilityRuleInput[];
 }
 
 // Reused for both creating a new event type (no `initial`) and editing an

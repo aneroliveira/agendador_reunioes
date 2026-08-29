@@ -134,6 +134,26 @@ describe("computeAvailableSlots", () => {
     }
   });
 
+  it("blocks a whole day when it's in holidayDates, even if a rule would otherwise open it", () => {
+    const { available, unavailable } = computeAvailableSlots({
+      rules: [{ ...baseRule, dayOfWeek: 1 }],
+      ownerTimezone: "America/Sao_Paulo",
+      durationMinutes: 60,
+      bufferBeforeMin: 0,
+      bufferAfterMin: 0,
+      minNoticeMinutes: 0,
+      bookingHorizonDays: 30,
+      busy: [],
+      holidayDates: new Set(["2026-08-03"]),
+      rangeFromUTC: new Date("2026-08-03T00:00:00Z"),
+      rangeToUTC: new Date("2026-08-03T23:59:59Z"),
+      now: new Date("2026-08-01T00:00:00Z"),
+    });
+
+    expect(available).toHaveLength(0);
+    expect(unavailable).toHaveLength(0);
+  });
+
   it("returns no slots when there are no active rules", () => {
     const { available } = computeAvailableSlots({
       rules: [{ ...baseRule, dayOfWeek: 1, isActive: false }],

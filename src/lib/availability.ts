@@ -22,6 +22,8 @@ export interface ComputeAvailableSlotsParams {
   bookingHorizonDays: number;
   /** Already-occupied intervals (confirmed bookings, Google Calendar busy blocks), UTC. */
   busy: BusyInterval[];
+  /** Owner-local calendar days ("yyyy-MM-dd") blocked off entirely, e.g. holidays. */
+  holidayDates?: Set<string>;
   /** Caller-requested window, UTC. Narrowed further by notice/horizon. */
   rangeFromUTC: Date;
   rangeToUTC: Date;
@@ -68,6 +70,7 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Comp
     minNoticeMinutes,
     bookingHorizonDays,
     busy,
+    holidayDates,
     rangeFromUTC,
     rangeToUTC,
     now,
@@ -106,6 +109,13 @@ export function computeAvailableSlots(params: ComputeAvailableSlotsParams): Comp
   const lastDay = windowEnd.setZone(ownerTimezone).startOf("day").plus({ days: 1 });
 
   while (cursor <= lastDay) {
+    // A holiday takes the whole day off the table — same visual result as a
+    // day with no active rule (zero slots), just for a different reason.
+    if (holidayDates?.has(cursor.toFormat("yyyy-MM-dd"))) {
+      cursor = cursor.plus({ days: 1 });
+      continue;
+    }
+
     const ourDayOfWeek = cursor.weekday % 7; // Luxon: 1=Mon..7=Sun -> 0=Sun..6=Sat
     const dayRules = activeRulesByDay.get(ourDayOfWeek) ?? [];
 

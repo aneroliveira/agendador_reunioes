@@ -51,6 +51,16 @@ model EventType {
   updatedAt         DateTime           @updatedAt
 }
 
+// Whole calendar days blocked off from booking (global — not per event type),
+// e.g. national holidays. `date` has no time/timezone component; it's an
+// owner-local calendar day, not an instant.
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  label     String
+  createdAt DateTime @default(now())
+}
+
 model AvailabilityRule {
   id          String    @id @default(cuid())
   eventTypeId String

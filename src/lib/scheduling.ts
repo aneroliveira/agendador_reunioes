@@ -15,10 +15,10 @@ export async function computeSlotsForEventType(params: {
   rangeFromUTC: Date;
   rangeToUTC: Date;
   now: Date;
-}): Promise<ComputedSlots> {
+}): Promise<ComputedSlots & { holidays: { date: string; label: string }[] }> {
   const { eventType, owner, rangeFromUTC, rangeToUTC, now } = params;
 
-  const [localBookings, googleBusy] = await Promise.all([
+  const [localBookings, googleBusy, holidays] = await Promise.all([
     // Not scoped to this eventType: it's a single-owner app with one real
     // calendar, so a confirmed booking under ANY event type occupies real
     // time and must block slots for every other event type too. BLOCKED
@@ -36,6 +36,18 @@ export async function computeSlotsForEventType(params: {
       console.error("Falha ao consultar freebusy do Google Calendar, seguindo só com reservas locais:", err);
       return [];
     }),
+    // Padded by a day on each side, same reasoning as the day-walk in
+    // computeAvailableSlots: a working day near the edge of the range can
+    // fall on a different UTC day than its owner-local calendar date.
+    prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: new Date(rangeFromUTC.getTime() - 24 * 60 * 60_000),
+          lte: new Date(rangeToUTC.getTime() + 24 * 60 * 60_000),
+        },
+      },
+      select: { date: true, label: true },
+    }),
   ]);
 
   const busy = [
@@ -43,7 +55,7 @@ export async function computeSlotsForEventType(params: {
     ...googleBusy,
   ];
 
-  return computeAvailableSlots({
+  const slots = computeAvailableSlots({
     rules: eventType.availabilityRules,
     ownerTimezone: owner.timezone,
     durationMinutes: eventType.durationMinutes,
@@ -52,8 +64,11 @@ export async function computeSlotsForEventType(params: {
     minNoticeMinutes: owner.minNoticeMinutes,
     bookingHorizonDays: owner.bookingHorizonDays,
     busy,
+    holidayDates: new Set(holidays.map((h) => h.date.toISOString().slice(0, 10))),
     rangeFromUTC,
     rangeToUTC,
     now,
   });
+
+  return { ...slots, holidays: holidays.map((h) => ({ date: h.date.toISOString().slice(0, 10), label: h.label })) };
 }

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 
 const DAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -15,7 +14,16 @@ export interface AvailabilityRuleInput {
   endTime: string;
 }
 
-export function AvailabilityForm({ initialRules }: { initialRules: AvailabilityRuleInput[] }) {
+// Each event type has its own independent weekly schedule — this form is
+// scoped to a single `eventTypeId`, so it lives inside that type's edit
+// dialog rather than a shared, dashboard-wide "Disponibilidade" section.
+export function AvailabilityForm({
+  eventTypeId,
+  initialRules,
+}: {
+  eventTypeId: string;
+  initialRules: AvailabilityRuleInput[];
+}) {
   const router = useRouter();
   const [rules, setRules] = useState(initialRules);
   const [saving, setSaving] = useState(false);
@@ -33,7 +41,7 @@ export function AvailabilityForm({ initialRules }: { initialRules: AvailabilityR
     setError(null);
     setSaved(false);
     try {
-      const res = await fetch("/api/admin/availability", {
+      const res = await fetch(`/api/admin/event-types/${eventTypeId}/availability`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rules }),
@@ -50,40 +58,35 @@ export function AvailabilityForm({ initialRules }: { initialRules: AvailabilityR
   }
 
   return (
-    <Card>
-      <CardContent>
-        <h2 className="mb-4 text-lg font-medium">Disponibilidade semanal</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {rules.map((rule) => (
-            <div key={rule.dayOfWeek} className="flex items-center gap-3">
-              <Switch
-                checked={rule.isActive}
-                onCheckedChange={(checked) => updateRule(rule.dayOfWeek, { isActive: checked })}
-              />
-              <span className="w-20 text-sm">{DAY_LABELS[rule.dayOfWeek]}</span>
-              <input
-                type="time"
-                value={rule.startTime}
-                disabled={!rule.isActive}
-                onChange={(e) => updateRule(rule.dayOfWeek, { startTime: e.target.value })}
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm disabled:opacity-50"
-              />
-              <span className="text-sm text-muted-foreground">até</span>
-              <input
-                type="time"
-                value={rule.endTime}
-                disabled={!rule.isActive}
-                onChange={(e) => updateRule(rule.dayOfWeek, { endTime: e.target.value })}
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm disabled:opacity-50"
-              />
-            </div>
-          ))}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={saving} className="w-fit">
-            {saving ? "Salvando…" : saved ? "Salvo!" : "Salvar"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {rules.map((rule) => (
+        <div key={rule.dayOfWeek} className="flex items-center gap-3">
+          <Switch
+            checked={rule.isActive}
+            onCheckedChange={(checked) => updateRule(rule.dayOfWeek, { isActive: checked })}
+          />
+          <span className="w-20 text-sm">{DAY_LABELS[rule.dayOfWeek]}</span>
+          <input
+            type="time"
+            value={rule.startTime}
+            disabled={!rule.isActive}
+            onChange={(e) => updateRule(rule.dayOfWeek, { startTime: e.target.value })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm disabled:opacity-50"
+          />
+          <span className="text-sm text-muted-foreground">até</span>
+          <input
+            type="time"
+            value={rule.endTime}
+            disabled={!rule.isActive}
+            onChange={(e) => updateRule(rule.dayOfWeek, { endTime: e.target.value })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm disabled:opacity-50"
+          />
+        </div>
+      ))}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" disabled={saving} className="w-fit">
+        {saving ? "Salvando…" : saved ? "Salvo!" : "Salvar"}
+      </Button>
+    </form>
   );
 }

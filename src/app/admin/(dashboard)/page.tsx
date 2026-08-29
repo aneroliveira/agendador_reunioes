@@ -9,7 +9,7 @@ import { AdminDecorativeBackground } from "@/components/admin-decorative-backgro
 import { LogoutButton } from "./logout-button";
 import { ProfileForm } from "./profile-form";
 import { AppearanceForm } from "./appearance-form";
-import { AvailabilityForm, type AvailabilityRuleInput } from "./availability-form";
+import { HolidaysForm } from "./holidays-form";
 import { UpcomingBookings } from "./upcoming-bookings";
 
 export default async function AdminDashboardPage({
@@ -28,23 +28,7 @@ export default async function AdminDashboardPage({
     include: { eventType: { select: { title: true, slug: true, durationMinutes: true } } },
   });
 
-  // MVP: every active event type shares one weekly schedule, so the editor
-  // just reads/writes the first active event type's rules.
-  const firstActiveEventType = await prisma.eventType.findFirst({
-    where: { isActive: true },
-    orderBy: { createdAt: "asc" },
-    include: { availabilityRules: true },
-  });
-  const rulesByDay = new Map(firstActiveEventType?.availabilityRules.map((r) => [r.dayOfWeek, r]) ?? []);
-  const availabilityRules: AvailabilityRuleInput[] = Array.from({ length: 7 }, (_, dayOfWeek) => {
-    const existing = rulesByDay.get(dayOfWeek);
-    return {
-      dayOfWeek,
-      isActive: existing?.isActive ?? false,
-      startTime: existing?.startTime ?? "09:00",
-      endTime: existing?.endTime ?? "18:00",
-    };
-  });
+  const holidays = await prisma.holiday.findMany({ orderBy: { date: "asc" } });
 
   return (
     <main className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
@@ -91,19 +75,28 @@ export default async function AdminDashboardPage({
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTab value="profile">Perfil</TabsTab>
-          <TabsTab value="availability">Disponibilidade</TabsTab>
+          <TabsTab value="holidays">Feriados</TabsTab>
           <TabsTab value="appearance">Aparência</TabsTab>
         </TabsList>
         <TabsPanel value="profile">
           <ProfileForm
+            displayName={owner?.displayName ?? ""}
+            themeColor={owner?.themeColor ?? "#c4677a"}
+            initialAvatarImageUrl={owner?.avatarImageUrl ?? null}
             initialIntroText={owner?.introText ?? ""}
             initialLinkedinUrl={owner?.linkedinUrl ?? ""}
             initialWhatsappUrl={owner?.whatsappUrl ?? ""}
             initialTeamsMeetingLink={owner?.teamsMeetingLink ?? ""}
           />
         </TabsPanel>
-        <TabsPanel value="availability">
-          <AvailabilityForm initialRules={availabilityRules} />
+        <TabsPanel value="holidays">
+          <HolidaysForm
+            initialHolidays={holidays.map((h) => ({
+              id: h.id,
+              date: h.date.toISOString().slice(0, 10),
+              label: h.label,
+            }))}
+          />
         </TabsPanel>
         <TabsPanel value="appearance">
           <AppearanceForm initialThemeColor={owner?.themeColor ?? "#c4677a"} />

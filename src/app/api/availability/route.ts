@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Tipo de reunião não encontrado" }, { status: 404 });
   }
 
-  const { available, unavailable } = await computeSlotsForEventType({
+  const { available, unavailable, holidays } = await computeSlotsForEventType({
     eventType,
     owner,
     rangeFromUTC: new Date(from),
@@ -44,5 +44,6 @@ export async function GET(request: NextRequest) {
     ownerTimezone: owner.timezone,
     slots: available.map((s) => ({ startUTC: s.startUTC.toISOString(), endUTC: s.endUTC.toISOString() })),
     unavailableSlots: unavailable.map((s) => ({ startUTC: s.startUTC.toISOString(), endUTC: s.endUTC.toISOString() })),
+    holidays,
   });
 }

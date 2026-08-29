@@ -14,12 +14,13 @@ const bodySchema = z.object({
   rules: z.array(ruleSchema).length(7),
 });
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
   if (!session.isAdmin) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  const { id: eventTypeId } = await params;
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
@@ -32,20 +33,18 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Single-owner MVP: every active event type shares the same weekly
-  // schedule. A per-event-type editor would only be needed once there's
-  // more than one active event type with a different schedule.
-  const eventTypes = await prisma.eventType.findMany({ where: { isActive: true }, select: { id: true } });
+  const eventType = await prisma.eventType.findUnique({ where: { id: eventTypeId }, select: { id: true } });
+  if (!eventType) {
+    return NextResponse.json({ error: "Tipo de reunião não encontrado" }, { status: 404 });
+  }
 
   await prisma.$transaction(
-    eventTypes.flatMap((eventType) =>
-      parsed.data.rules.map((rule) =>
-        prisma.availabilityRule.upsert({
-          where: { eventTypeId_dayOfWeek: { eventTypeId: eventType.id, dayOfWeek: rule.dayOfWeek } },
-          create: { eventTypeId: eventType.id, ...rule },
-          update: { isActive: rule.isActive, startTime: rule.startTime, endTime: rule.endTime },
-        }),
-      ),
+    parsed.data.rules.map((rule) =>
+      prisma.availabilityRule.upsert({
+        where: { eventTypeId_dayOfWeek: { eventTypeId, dayOfWeek: rule.dayOfWeek } },
+        create: { eventTypeId, ...rule },
+        update: { isActive: rule.isActive, startTime: rule.startTime, endTime: rule.endTime },
+      }),
     ),
   );
 
