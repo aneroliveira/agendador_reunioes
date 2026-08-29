@@ -3,6 +3,7 @@ import { render } from "@react-email/components";
 import ConfirmationEmail from "@/emails/confirmation";
 import ReminderEmail from "@/emails/reminder";
 import CancellationEmail from "@/emails/cancellation";
+import OwnerNotificationEmail from "@/emails/owner-notification";
 import { prisma } from "./db";
 import { buildInviteIcs } from "./ics";
 
@@ -136,4 +137,30 @@ export async function sendCancellationEmail(
   );
   const attachment = buildIcsAttachment(info, { method: "CANCEL", status: "CANCELLED", sequence: 1 });
   await sendMail(info.inviteeEmail, `Cancelado: ${info.eventTitle}`, html, [attachment]);
+}
+
+export async function sendOwnerNotificationEmail(
+  info: Pick<
+    BookingEmailInfo,
+    "eventTitle" | "formattedDateTime" | "inviteeName" | "inviteeEmail" | "inviteeNotes" | "meetingProvider" | "meetLink"
+  > & {
+    ownerEmail: string;
+    durationMinutes: number;
+  },
+) {
+  const accentColor = await getAccentColor();
+  const html = await render(
+    OwnerNotificationEmail({
+      eventTitle: info.eventTitle,
+      durationMinutes: info.durationMinutes,
+      formattedDateTime: info.formattedDateTime,
+      inviteeName: info.inviteeName,
+      inviteeEmail: info.inviteeEmail,
+      inviteeNotes: info.inviteeNotes,
+      meetingProvider: info.meetingProvider,
+      meetLink: info.meetLink,
+      accentColor,
+    }),
+  );
+  await sendMail(info.ownerEmail, `Nova reunião: ${info.inviteeName}`, html);
 }

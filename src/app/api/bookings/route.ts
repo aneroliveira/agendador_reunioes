@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { computeSlotsForEventType } from "@/lib/scheduling";
 import { createCalendarEvent } from "@/lib/google-calendar";
-import { sendConfirmationEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendOwnerNotificationEmail } from "@/lib/email";
 import { scheduleReminder } from "@/lib/qstash";
 
 const bodySchema = z.object({
@@ -170,6 +170,22 @@ export async function POST(request: NextRequest) {
       });
     } catch (err) {
       console.error("Falha ao enviar e-mail de confirmação para a reserva", booking.id, err);
+    }
+
+    try {
+      await sendOwnerNotificationEmail({
+        ownerEmail: owner.email,
+        eventTitle: eventType.title,
+        durationMinutes: eventType.durationMinutes,
+        formattedDateTime,
+        inviteeName,
+        inviteeEmail,
+        inviteeNotes,
+        meetingProvider: freshBooking.meetingProvider,
+        meetLink: freshBooking.meetLink,
+      });
+    } catch (err) {
+      console.error("Falha ao enviar e-mail de notificação ao dono para a reserva", booking.id, err);
     }
 
     try {
