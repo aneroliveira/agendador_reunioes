@@ -2,13 +2,15 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Button } from "@/components/ui/button";
+import { AdminDecorativeBackground } from "@/components/admin-decorative-background";
 import { EventTypeList } from "./event-type-list";
 
 export default async function EventTypesPage() {
   const eventTypes = await prisma.eventType.findMany({ orderBy: { createdAt: "asc" } });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
+    <main className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
+      <AdminDecorativeBackground />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Tipos de reunião</h1>
         <Button variant="ghost" size="sm" render={<Link href="/admin" />}>
