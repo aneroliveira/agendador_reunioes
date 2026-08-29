@@ -4,10 +4,13 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
+import { AdminDecorativeBackground } from "@/components/admin-decorative-background";
 import { LogoutButton } from "./logout-button";
 import { ProfileForm } from "./profile-form";
 import { AppearanceForm } from "./appearance-form";
 import { AvailabilityForm, type AvailabilityRuleInput } from "./availability-form";
+import { UpcomingBookings } from "./upcoming-bookings";
 
 export default async function AdminDashboardPage({
   searchParams,
@@ -22,7 +25,7 @@ export default async function AdminDashboardPage({
     where: { status: "CONFIRMED", startTimeUTC: { gte: new Date() } },
     orderBy: { startTimeUTC: "asc" },
     take: 20,
-    include: { eventType: { select: { title: true } } },
+    include: { eventType: { select: { title: true, slug: true, durationMinutes: true } } },
   });
 
   // MVP: every active event type shares one weekly schedule, so the editor
@@ -44,7 +47,8 @@ export default async function AdminDashboardPage({
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
+    <main className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
+      <AdminDecorativeBackground />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Painel</h1>
         <div className="flex items-center gap-2">
@@ -67,7 +71,7 @@ export default async function AdminDashboardPage({
       )}
 
       <Card>
-        <CardContent className="flex items-center justify-between pt-6">
+        <CardContent className="flex items-center justify-between">
           <div>
             <p className="font-medium">Google Calendar</p>
             <p className="text-sm text-muted-foreground">
@@ -84,47 +88,38 @@ export default async function AdminDashboardPage({
         </CardContent>
       </Card>
 
-      <ProfileForm
-        initialIntroText={owner?.introText ?? ""}
-        initialLinkedinUrl={owner?.linkedinUrl ?? ""}
-        initialWhatsappUrl={owner?.whatsappUrl ?? ""}
-        initialTeamsMeetingLink={owner?.teamsMeetingLink ?? ""}
+      <Tabs defaultValue="profile">
+        <TabsList>
+          <TabsTab value="profile">Perfil</TabsTab>
+          <TabsTab value="availability">Disponibilidade</TabsTab>
+          <TabsTab value="appearance">Aparência</TabsTab>
+        </TabsList>
+        <TabsPanel value="profile">
+          <ProfileForm
+            initialIntroText={owner?.introText ?? ""}
+            initialLinkedinUrl={owner?.linkedinUrl ?? ""}
+            initialWhatsappUrl={owner?.whatsappUrl ?? ""}
+            initialTeamsMeetingLink={owner?.teamsMeetingLink ?? ""}
+          />
+        </TabsPanel>
+        <TabsPanel value="availability">
+          <AvailabilityForm initialRules={availabilityRules} />
+        </TabsPanel>
+        <TabsPanel value="appearance">
+          <AppearanceForm initialThemeColor={owner?.themeColor ?? "#c4677a"} />
+        </TabsPanel>
+      </Tabs>
+
+      <UpcomingBookings
+        bookings={upcomingBookings.map((b) => ({
+          id: b.id,
+          inviteeName: b.inviteeName,
+          inviteeEmail: b.inviteeEmail,
+          startTimeUTC: b.startTimeUTC.toISOString(),
+          meetLink: b.meetLink,
+          eventType: b.eventType,
+        }))}
       />
-
-      <AppearanceForm initialThemeColor={owner?.themeColor ?? "#c4677a"} />
-
-      <AvailabilityForm initialRules={availabilityRules} />
-
-      <div>
-        <h2 className="mb-2 text-lg font-medium">Próximas reuniões</h2>
-        {upcomingBookings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma reunião agendada.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {upcomingBookings.map((b) => (
-              <Card key={b.id}>
-                <CardContent className="flex items-center justify-between pt-6">
-                  <div>
-                    <p className="font-medium">{b.eventType.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {b.startTimeUTC.toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" })} —{" "}
-                      {b.inviteeName} ({b.inviteeEmail})
-                    </p>
-                  </div>
-                  {b.meetLink && (
-                    <Button
-                      variant="outline"
-                      render={<a href={b.meetLink} target="_blank" rel="noopener noreferrer" />}
-                    >
-                      Meet
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
     </main>
   );
 }
