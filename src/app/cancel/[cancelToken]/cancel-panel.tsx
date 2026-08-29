@@ -80,7 +80,7 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
         <CardContent className="flex flex-col items-start gap-1 pt-6">
           <h1 className="text-xl font-semibold">Cancelado!</h1>
           <p className="text-sm text-muted-foreground">Sua reunião foi cancelada.</p>
-          <Button className="mt-3" render={<Link href={`/book/${booking.eventType.slug}`} />}>
+          <Button className="mt-3" render={<Link href="/" />}>
             Fazer novo agendamento
           </Button>
         </CardContent>

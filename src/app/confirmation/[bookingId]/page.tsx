@@ -76,7 +76,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ b
             )}
 
             {isCancelled && (
-              <Button variant="outline" className="w-fit" render={<Link href={bookAgainHref} />}>
+              <Button variant="outline" className="w-fit" render={<Link href="/" />}>
                 Fazer novo agendamento
               </Button>
             )}

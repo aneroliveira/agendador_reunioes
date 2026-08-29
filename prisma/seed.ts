@@ -22,7 +22,7 @@ async function main() {
     create: {
       slug: "conversa-flexivel",
       title: "Conversa Flexível",
-      description: "Escolha o horário que melhor se encaixa e até breve!",
+      description: "Escolha o melhor horário para a nossa conversa — até breve!",
       durationMinutes: 30,
     },
   });

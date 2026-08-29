@@ -220,13 +220,10 @@ export function BookingForm({
 
   const daysInMonth = new Date(visibleYear, visibleMonthIndex + 1, 0).getDate();
   const firstWeekday = new Date(visibleYear, visibleMonthIndex, 1).getDay();
-  const rawMonthLabel = new Date(visibleYear, visibleMonthIndex, 1).toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
-  // text-transform: capitalize would capitalize every word ("Agosto De 2026");
-  // only the first letter should be uppercase ("Agosto de 2026").
-  const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
+  // Month name + year only, no "de" connector (Intl's combined month+year
+  // format would produce "agosto de 2026") — built from separate parts instead.
+  const rawMonthName = new Date(visibleYear, visibleMonthIndex, 1).toLocaleDateString("pt-BR", { month: "long" });
+  const monthLabel = `${rawMonthName.charAt(0).toUpperCase()}${rawMonthName.slice(1)} ${visibleYear}`;
   const dayCells: Array<{ day: number; dateStr: string } | null> = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => {
