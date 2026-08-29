@@ -1,25 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AvatarInitials } from "@/components/avatar-initials";
 
 export function ProfileForm({
+  displayName,
+  themeColor,
+  initialAvatarImageUrl,
   initialIntroText,
   initialLinkedinUrl,
   initialWhatsappUrl,
   initialTeamsMeetingLink,
 }: {
+  displayName: string;
+  themeColor: string;
+  initialAvatarImageUrl: string | null;
   initialIntroText: string;
   initialLinkedinUrl: string;
   initialWhatsappUrl: string;
   initialTeamsMeetingLink: string;
 }) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarImageUrl, setAvatarImageUrl] = useState(initialAvatarImageUrl);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [introText, setIntroText] = useState(initialIntroText);
   const [linkedinUrl, setLinkedinUrl] = useState(initialLinkedinUrl);
   const [whatsappUrl, setWhatsappUrl] = useState(initialWhatsappUrl);
@@ -27,6 +38,29 @@ export function ProfileForm({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Uploading a photo is independent of the rest of the form's "Salvar" —
+  // it happens as soon as a file is picked, no need to wait for the submit.
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/profile/avatar", { method: "POST", body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Falha ao enviar imagem");
+      setAvatarImageUrl(data.url);
+      router.refresh();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Não foi possível enviar a imagem. Tente novamente.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +87,33 @@ export function ProfileForm({
     <Card>
       <CardContent>
         <h2 className="mb-4 text-lg font-medium">Perfil público</h2>
+        <div className="mb-4 flex items-center gap-4">
+          {avatarImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- avatar comes from Vercel Blob, an external host we can't configure next/image for without extra setup.
+            <img src={avatarImageUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+          ) : (
+            <AvatarInitials name={displayName} accentColor={themeColor} />
+          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? "Enviando…" : "Trocar foto"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {uploadError && <p className="mt-1 text-sm text-destructive">{uploadError}</p>}
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <Label htmlFor="introText">Texto de introdução</Label>

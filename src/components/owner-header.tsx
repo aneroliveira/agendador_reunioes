@@ -8,12 +8,20 @@ import type { OwnerAccount } from "@/generated/prisma/client";
 export function OwnerHeader({
   owner,
 }: {
-  owner: Pick<OwnerAccount, "displayName" | "themeColor" | "introText" | "linkedinUrl" | "whatsappUrl">;
+  owner: Pick<
+    OwnerAccount,
+    "displayName" | "themeColor" | "introText" | "linkedinUrl" | "whatsappUrl" | "avatarImageUrl"
+  >;
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-center gap-4">
-        <AvatarInitials name={owner.displayName} accentColor={owner.themeColor} />
+        {owner.avatarImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- avatar comes from Vercel Blob, an external host we can't configure next/image for without extra setup.
+          <img src={owner.avatarImageUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+        ) : (
+          <AvatarInitials name={owner.displayName} accentColor={owner.themeColor} />
+        )}
         <div>
           <h2 className="text-lg font-semibold">{owner.displayName}</h2>
           {owner.introText && <p className="text-sm text-muted-foreground">{owner.introText}</p>}
@@ -22,6 +30,7 @@ export function OwnerHeader({
               {owner.linkedinUrl && (
                 <Badge
                   variant="outline"
+                  className="border-sky-200 bg-sky-100 text-sky-800"
                   render={<a href={owner.linkedinUrl} target="_blank" rel="noopener noreferrer" />}
                 >
                   LinkedIn
@@ -30,6 +39,7 @@ export function OwnerHeader({
               {owner.whatsappUrl && (
                 <Badge
                   variant="outline"
+                  className="border-emerald-200 bg-emerald-100 text-emerald-800"
                   render={<a href={owner.whatsappUrl} target="_blank" rel="noopener noreferrer" />}
                 >
                   WhatsApp
