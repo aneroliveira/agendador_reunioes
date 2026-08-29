@@ -4,6 +4,8 @@ import ConfirmationEmail from "@/emails/confirmation";
 import ReminderEmail from "@/emails/reminder";
 import CancellationEmail from "@/emails/cancellation";
 import OwnerNotificationEmail from "@/emails/owner-notification";
+import RescheduleProposalEmail from "@/emails/reschedule-proposal";
+import RescheduleDeclinedEmail from "@/emails/reschedule-declined-owner";
 import { prisma } from "./db";
 import { buildInviteIcs } from "./ics";
 
@@ -163,4 +165,48 @@ export async function sendOwnerNotificationEmail(
     }),
   );
   await sendMail(info.ownerEmail, `Nova reunião: ${info.inviteeName}`, html);
+}
+
+export async function sendRescheduleProposalEmail(info: {
+  inviteeEmail: string;
+  inviteeName: string;
+  eventTitle: string;
+  reason: string;
+  originalFormattedDateTime: string;
+  proposedFormattedDateTime: string;
+  respondUrl: string;
+}) {
+  const accentColor = await getAccentColor();
+  const html = await render(
+    RescheduleProposalEmail({
+      eventTitle: info.eventTitle,
+      inviteeName: info.inviteeName,
+      reason: info.reason,
+      originalFormattedDateTime: info.originalFormattedDateTime,
+      proposedFormattedDateTime: info.proposedFormattedDateTime,
+      respondUrl: info.respondUrl,
+      accentColor,
+    }),
+  );
+  await sendMail(info.inviteeEmail, `Nova sugestão de horário: ${info.eventTitle}`, html);
+}
+
+export async function sendRescheduleDeclinedEmail(info: {
+  ownerEmail: string;
+  eventTitle: string;
+  inviteeName: string;
+  inviteeEmail: string;
+  proposedFormattedDateTime: string;
+}) {
+  const accentColor = await getAccentColor();
+  const html = await render(
+    RescheduleDeclinedEmail({
+      eventTitle: info.eventTitle,
+      inviteeName: info.inviteeName,
+      inviteeEmail: info.inviteeEmail,
+      proposedFormattedDateTime: info.proposedFormattedDateTime,
+      accentColor,
+    }),
+  );
+  await sendMail(info.ownerEmail, `${info.inviteeName} recusou o novo horário`, html);
 }

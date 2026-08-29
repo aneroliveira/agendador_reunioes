@@ -100,6 +100,17 @@ model Booking {
   qstashMessageId String?
   reminderSentAt  DateTime?
 
+  // Owner-initiated "cancel and suggest another time" flow. While
+  // proposalStatus is PENDING, the booking's own startTimeUTC/endTimeUTC
+  // stay untouched (the original slot keeps counting as busy) — only on
+  // ACCEPTED does the booking actually move to the proposed time.
+  proposalStatus       ProposalStatus?
+  proposedStartTimeUTC DateTime?
+  proposedEndTimeUTC   DateTime?
+  proposalReason       String?         @db.Text
+  proposalToken        String?         @unique
+  proposalRespondedAt  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -110,9 +121,22 @@ model Booking {
 enum BookingStatus {
   CONFIRMED
   CANCELLED
+  // A slot permanently taken off the calendar by an owner-initiated
+  // reschedule (accepted or declined) — the real meeting moved or died, but
+  // whatever conflict made the owner reschedule in the first place is
+  // usually hers, not the invitee's, so the original time never re-opens.
+  // Only ever created as a standalone placeholder row, never assigned to a
+  // booking that has real invitee-facing state (that stays CONFIRMED/CANCELLED).
+  BLOCKED
 }
 
 enum MeetingProvider {
   GOOGLE_MEET
   TEAMS
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }

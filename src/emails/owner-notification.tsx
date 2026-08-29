@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { Heading, Link, Text } from "@react-email/components";
+import { Heading, Link } from "@react-email/components";
 import { EmailLayout } from "./components/layout";
+import { InfoRow } from "./components/info-row";
 
 export interface OwnerNotificationEmailProps {
   eventTitle: string;
@@ -12,16 +12,6 @@ export interface OwnerNotificationEmailProps {
   meetingProvider?: "GOOGLE_MEET" | "TEAMS";
   meetLink?: string | null;
   accentColor: string;
-}
-
-// One "Label: value" line per piece of info — easier to scan at a glance
-// than a paragraph mixing everything together.
-function InfoRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Text style={{ margin: "0 0 10px", fontSize: "14px" }}>
-      <strong>{label}:</strong> {children}
-    </Text>
-  );
 }
 
 export default function OwnerNotificationEmail({

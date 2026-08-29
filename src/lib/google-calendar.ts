@@ -135,6 +135,33 @@ export async function createCalendarEvent(params: {
   };
 }
 
+export async function updateCalendarEvent(params: {
+  googleEventId: string;
+  startTimeUTC: Date;
+  endTimeUTC: Date;
+}): Promise<void> {
+  const client = await getAuthenticatedClient();
+  if (!client) return;
+
+  const owner = await prisma.ownerAccount.findUnique({ where: { id: 1 } });
+  const calendar = google.calendar({ version: "v3", auth: client });
+
+  try {
+    await calendar.events.patch({
+      calendarId: owner!.googleCalendarId,
+      eventId: params.googleEventId,
+      sendUpdates: "externalOnly",
+      requestBody: {
+        start: { dateTime: params.startTimeUTC.toISOString() },
+        end: { dateTime: params.endTimeUTC.toISOString() },
+      },
+    });
+  } catch (err) {
+    const code = (err as { code?: number })?.code;
+    if (code !== 404 && code !== 410) throw err; // already gone is fine
+  }
+}
+
 export async function deleteCalendarEvent(googleEventId: string): Promise<void> {
   const client = await getAuthenticatedClient();
   if (!client) return;
