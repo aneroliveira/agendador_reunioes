@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home } from "lucide-react";
+import { CalendarClock, Home } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,10 @@ export default async function AdminDashboardPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Painel</h1>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" render={<Link href="/admin/event-types" />}>
+            <CalendarClock data-icon="inline-start" className="size-4" />
+            Tipos de reunião
+          </Button>
           <Button variant="ghost" size="sm" render={<Link href="/" />}>
             <Home data-icon="inline-start" className="size-4" />
             Ver site
