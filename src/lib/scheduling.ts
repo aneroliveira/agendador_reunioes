@@ -19,9 +19,11 @@ export async function computeSlotsForEventType(params: {
   const { eventType, owner, rangeFromUTC, rangeToUTC, now } = params;
 
   const [localBookings, googleBusy] = await Promise.all([
+    // Not scoped to this eventType: it's a single-owner app with one real
+    // calendar, so a confirmed booking under ANY event type occupies real
+    // time and must block slots for every other event type too.
     prisma.booking.findMany({
       where: {
-        eventTypeId: eventType.id,
         status: "CONFIRMED",
         startTimeUTC: { lt: rangeToUTC },
         endTimeUTC: { gt: rangeFromUTC },

@@ -83,6 +83,12 @@ model Booking {
 
   // eventTypeId+startTimeUTC while CONFIRMED, set to null on cancel.
   // The unique index on this column is what atomically prevents double-booking.
+  // Note: this only guards the exact (eventType, instant) pair — it does NOT
+  // prevent two different event types from claiming overlapping time ranges
+  // if their requests race within the same window (both could pass the
+  // pre-check in computeSlotsForEventType before either commits). Accepted
+  // trade-off for a low-volume personal scheduler; closing it fully would
+  // need a Postgres range-exclusion constraint (EXCLUDE USING gist).
   activeSlotKey String? @unique
 
   googleEventId      String?
