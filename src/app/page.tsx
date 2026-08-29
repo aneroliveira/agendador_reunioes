@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { OwnerHeader } from "@/components/owner-header";
 import { DurationBadge } from "@/components/duration-badge";
+import { DecorativeBackground } from "@/components/decorative-background";
 import { Card, CardContent } from "@/components/ui/card";
 
 // Depends on which EventType(s) are active in the DB — must not be baked in at build time.
@@ -29,7 +30,8 @@ export default async function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 pt-6 pb-12">
+    <main className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 pt-6 pb-12">
+      <DecorativeBackground />
       <OwnerHeader owner={owner} />
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Que tipo de conversa você quer agendar?</h1>
