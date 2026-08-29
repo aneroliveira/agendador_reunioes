@@ -51,7 +51,7 @@ export function AvailabilityForm({ initialRules }: { initialRules: AvailabilityR
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent>
         <h2 className="mb-4 text-lg font-medium">Disponibilidade semanal</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {rules.map((rule) => (

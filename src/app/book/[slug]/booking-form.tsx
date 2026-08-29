@@ -234,7 +234,7 @@ export function BookingForm({
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-4 pt-6">
+      <CardContent className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-primary">{eventTitle}</h1>

@@ -39,7 +39,7 @@ export default async function Home() {
         {activeEventTypes.map((eventType) => (
           <Link key={eventType.id} href={`/book/${eventType.slug}`} className="block">
             <Card className="transition hover:ring-2 hover:ring-primary">
-              <CardContent className="flex items-center justify-between gap-4 pt-6">
+              <CardContent className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium">{eventType.title}</p>
                   {eventType.description && (

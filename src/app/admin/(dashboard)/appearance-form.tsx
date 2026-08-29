@@ -45,7 +45,7 @@ export function AppearanceForm({ initialThemeColor }: { initialThemeColor: strin
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent>
         <h2 className="mb-4 text-lg font-medium">Aparência</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>

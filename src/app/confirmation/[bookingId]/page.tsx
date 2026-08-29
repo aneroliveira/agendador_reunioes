@@ -38,7 +38,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ b
           )}
         </div>
         <Card>
-          <CardContent className="flex flex-col gap-3 pt-6">
+          <CardContent className="flex flex-col gap-3">
             <h1 className="text-2xl font-semibold">{isCancelled ? "Cancelado!" : "Confirmado!"}</h1>
             <p className="text-base font-medium">{booking.eventType.title}</p>
             <p className="text-sm text-muted-foreground">

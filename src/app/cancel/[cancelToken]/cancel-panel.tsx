@@ -61,7 +61,7 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   if (loadError) {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm text-destructive">{loadError}</CardContent>
+        <CardContent className="text-sm text-destructive">{loadError}</CardContent>
       </Card>
     );
   }
@@ -69,7 +69,7 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   if (!booking) {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">Carregando…</CardContent>
+        <CardContent className="text-sm text-muted-foreground">Carregando…</CardContent>
       </Card>
     );
   }
@@ -77,7 +77,7 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
   if (cancelled || booking.status === "CANCELLED") {
     return (
       <Card>
-        <CardContent className="flex flex-col items-start gap-1 pt-6">
+        <CardContent className="flex flex-col items-start gap-1">
           <h1 className="text-xl font-semibold">Cancelado!</h1>
           <p className="text-sm text-muted-foreground">Sua reunião foi cancelada.</p>
           <Button className="mt-3" render={<Link href="/" />}>
@@ -99,7 +99,7 @@ export function CancelPanel({ cancelToken }: { cancelToken: string }) {
         <span className="text-lg leading-none font-bold text-destructive">?</span>
       </div>
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-6">
+        <CardContent className="flex flex-col gap-3">
           <h1 className="text-2xl font-semibold">Cancelar reunião</h1>
           <p className="text-base font-medium">{booking.eventType.title}</p>
           <p className="text-sm text-muted-foreground">{formattedStart}</p>
